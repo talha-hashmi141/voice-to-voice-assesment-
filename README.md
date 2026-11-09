@@ -29,7 +29,7 @@ Built for the _Senior Software Engineer: Voice-to-Voice Agent with RAG, Semantic
 Prerequisites: Node 22+, pnpm 10, Docker Desktop.
 
 ```bash
-git clone <this repo> && cd voice-rag-agent
+git clone https://github.com/talha-hashmi141/voice-to-voice-assesment-.git voice-rag-agent && cd voice-rag-agent
 pnpm bootstrap     # installs, creates .env, starts Postgres + Redis, migrates, seeds + indexes the knowledge base
 pnpm dev           # API on http://localhost:4000, web app on http://localhost:3000
 ```
