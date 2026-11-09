@@ -1,0 +1,33 @@
+{
+  "name": "voice-rag-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice-to-voice AI agent with hybrid RAG, semantic search and multi-step tool calling (NestJS + Next.js monorepo)",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "predev": "node scripts/ensure-infra.mjs",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:up": "docker compose -f docker/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose -f docker/docker-compose.yml down",
+    "infra:reset": "docker compose -f docker/docker-compose.yml down -v",
+    "db:migrate": "pnpm --filter @voice-agent/api db:migrate",
+    "db:seed": "pnpm --filter @voice-agent/api db:seed",
+    "eval:retrieval": "pnpm --filter @voice-agent/api eval:retrieval"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.11.10",
+    "typescript": "^5.9.3"
+  }
+}

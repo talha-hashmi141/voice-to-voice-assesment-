@@ -1,0 +1,20 @@
+{
+  "name": "@voice-agent/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared TypeScript, ESLint and Prettier configuration",
+  "type": "module",
+  "exports": {
+    "./tsconfig/*.json": "./tsconfig/*.json",
+    "./eslint/base": "./eslint/base.mjs"
+  },
+  "files": ["tsconfig", "eslint"],
+  "dependencies": {
+    "@eslint/js": "^9.30.0",
+    "eslint-config-prettier": "^10.1.8",
+    "typescript-eslint": "^8.40.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0"
+  }
+}
