@@ -6,7 +6,14 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const COMPOSE_FILE = resolve(ROOT, 'docker', 'docker-compose.yml');
 
-const colors = { reset: '\x1b[0m', bold: '\x1b[1m', green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[36m', red: '\x1b[31m' };
+const colors = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  red: '\x1b[31m',
+};
 export const log = {
   step: (msg) => console.log(`\n${colors.cyan}${colors.bold}▶ ${msg}${colors.reset}`),
   ok: (msg) => console.log(`${colors.green}✔ ${msg}${colors.reset}`),
@@ -18,7 +25,12 @@ export const log = {
 /** Runs a command, streaming output; resolves with the exit code (never throws). */
 export function run(cmd, args, { cwd = ROOT, env = process.env, quiet = false } = {}) {
   return new Promise((resolvePromise) => {
-    const child = spawn(cmd, args, { cwd, env, stdio: quiet ? 'ignore' : 'inherit', shell: process.platform === 'win32' });
+    const child = spawn(cmd, args, {
+      cwd,
+      env,
+      stdio: quiet ? 'ignore' : 'inherit',
+      shell: process.platform === 'win32',
+    });
     child.on('close', (code) => resolvePromise(code ?? 1));
     child.on('error', () => resolvePromise(1));
   });

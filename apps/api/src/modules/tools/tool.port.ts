@@ -1,4 +1,9 @@
-import { type RetrievalAssessment, type Source, type ToolName, type UserContext } from '@voice-agent/contracts';
+import {
+  type RetrievalAssessment,
+  type Source,
+  type ToolName,
+  type UserContext,
+} from '@voice-agent/contracts';
 import { type z } from 'zod';
 
 /** Per-turn registry that numbers cited passages consistently across several searches. */
@@ -38,7 +43,13 @@ export interface ToolResult<TData = unknown> {
   /** One-line human-readable description for the trace UI. */
   summary: string;
   /** Present for retrieval tools: how trustworthy the retrieved passages are. */
-  retrieval?: { assessment: RetrievalAssessment; topScore: number | null; hits: number; queries: string[]; reason: string };
+  retrieval?: {
+    assessment: RetrievalAssessment;
+    topScore: number | null;
+    hits: number;
+    queries: string[];
+    reason: string;
+  };
 }
 
 export interface Tool<TArgs = unknown, TData = unknown> {

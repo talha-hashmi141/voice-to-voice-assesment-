@@ -1,7 +1,17 @@
 'use client';
 
 import type { TurnMetrics } from '@voice-agent/contracts';
-import { ActivityIcon, CalculatorIcon, CalendarClockIcon, CheckCircle2Icon, ChevronDownIcon, SearchIcon, TicketIcon, WalletIcon, XCircleIcon } from 'lucide-react';
+import {
+  ActivityIcon,
+  CalculatorIcon,
+  CalendarClockIcon,
+  CheckCircle2Icon,
+  ChevronDownIcon,
+  SearchIcon,
+  TicketIcon,
+  WalletIcon,
+  XCircleIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -25,39 +35,73 @@ const ASSESSMENT_STYLES: Record<string, string> = {
 
 function TraceRow({ entry }: { entry: TraceEntry }) {
   const [open, setOpen] = useState(false);
-  const Icon = entry.kind === 'retrieval' ? ActivityIcon : entry.kind === 'state' ? CheckCircle2Icon : (ICONS[entry.name ?? ''] ?? ActivityIcon);
+  const Icon =
+    entry.kind === 'retrieval'
+      ? ActivityIcon
+      : entry.kind === 'state'
+        ? CheckCircle2Icon
+        : (ICONS[entry.name ?? ''] ?? ActivityIcon);
   const hasData = entry.data && Object.keys(entry.data).length > 0;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="rounded-lg border bg-card/60 text-xs">
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="rounded-lg border bg-card/60 text-xs"
+    >
       <CollapsibleTrigger
         disabled={!hasData}
-        className={cn('flex w-full items-start gap-2 px-2.5 py-2 text-left', hasData && 'cursor-pointer hover:bg-muted/60')}
+        className={cn(
+          'flex w-full items-start gap-2 px-2.5 py-2 text-left',
+          hasData && 'cursor-pointer hover:bg-muted/60',
+        )}
       >
         <span
           className={cn(
             'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md',
             entry.kind === 'tool_call' && 'bg-state-processing/20 text-state-processing',
-            entry.kind === 'tool_result' && (entry.ok === false ? 'bg-state-error/15 text-state-error' : 'bg-state-listening/15 text-state-listening'),
+            entry.kind === 'tool_result' &&
+              (entry.ok === false
+                ? 'bg-state-error/15 text-state-error'
+                : 'bg-state-listening/15 text-state-listening'),
             entry.kind === 'retrieval' && ASSESSMENT_STYLES[entry.assessment ?? 'weak'],
             entry.kind === 'state' && 'bg-state-speaking/15 text-state-speaking',
           )}
         >
-          {entry.kind === 'tool_result' && entry.ok === false ? <XCircleIcon className="size-3" /> : <Icon className="size-3" />}
+          {entry.kind === 'tool_result' && entry.ok === false ? (
+            <XCircleIcon className="size-3" />
+          ) : (
+            <Icon className="size-3" />
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">{entry.label}</span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
             <span className="tabular-nums">+{(entry.at / 1000).toFixed(2)}s</span>
-            {entry.durationMs !== undefined ? <span className="tabular-nums">· {entry.durationMs} ms</span> : null}
+            {entry.durationMs !== undefined ? (
+              <span className="tabular-nums">· {entry.durationMs} ms</span>
+            ) : null}
             {entry.kind === 'retrieval' && entry.assessment ? (
-              <Badge variant="outline" className={cn('h-4 px-1 text-[10px] capitalize', ASSESSMENT_STYLES[entry.assessment])}>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'h-4 px-1 text-[10px] capitalize',
+                  ASSESSMENT_STYLES[entry.assessment],
+                )}
+              >
                 {entry.assessment}
               </Badge>
             ) : null}
           </span>
         </span>
-        {hasData ? <ChevronDownIcon className={cn('mt-1 size-3 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} /> : null}
+        {hasData ? (
+          <ChevronDownIcon
+            className={cn(
+              'mt-1 size-3 shrink-0 text-muted-foreground transition-transform',
+              open && 'rotate-180',
+            )}
+          />
+        ) : null}
       </CollapsibleTrigger>
       {hasData ? (
         <CollapsibleContent>
@@ -83,7 +127,9 @@ export function AgentTracePanel({ trace, metrics, phase }: AgentTracePanelProps)
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold">Agent trace</h2>
-          <p className="text-xs text-muted-foreground">Tools, retrieval grading and latency for the current turn</p>
+          <p className="text-xs text-muted-foreground">
+            Tools, retrieval grading and latency for the current turn
+          </p>
         </div>
         <Badge variant="secondary" className="capitalize">
           {phase.replace('_', ' ')}
@@ -100,7 +146,8 @@ export function AgentTracePanel({ trace, metrics, phase }: AgentTracePanelProps)
           </ol>
         ) : (
           <p className="px-1 py-6 text-center text-xs text-muted-foreground">
-            The trace appears here while the agent works: which tools it calls, how it grades what it retrieved, and how long each stage took.
+            The trace appears here while the agent works: which tools it calls, how it grades what
+            it retrieved, and how long each stage took.
           </p>
         )}
       </div>

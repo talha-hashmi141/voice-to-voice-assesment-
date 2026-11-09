@@ -13,7 +13,10 @@ const messageCountSql = sql<number>`(select count(*)::int from messages m where 
 export class ConversationRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async create(input: { userContext?: UserContext | null; title?: string | null }): Promise<ConversationRow> {
+  async create(input: {
+    userContext?: UserContext | null;
+    title?: string | null;
+  }): Promise<ConversationRow> {
     const [row] = await this.db
       .insert(conversations)
       .values({ userContext: input.userContext ?? null, title: input.title ?? null })
@@ -39,12 +42,17 @@ export class ConversationRepository {
   }
 
   /** Bumps updatedAt and sets the title / user context when they are still empty. */
-  async touch(id: string, patch: { titleIfEmpty?: string; userContext?: UserContext | null } = {}): Promise<void> {
+  async touch(
+    id: string,
+    patch: { titleIfEmpty?: string; userContext?: UserContext | null } = {},
+  ): Promise<void> {
     await this.db
       .update(conversations)
       .set({
         updatedAt: new Date(),
-        ...(patch.titleIfEmpty ? { title: sql`coalesce(${conversations.title}, ${patch.titleIfEmpty})` } : {}),
+        ...(patch.titleIfEmpty
+          ? { title: sql`coalesce(${conversations.title}, ${patch.titleIfEmpty})` }
+          : {}),
         ...(patch.userContext !== undefined ? { userContext: patch.userContext } : {}),
       })
       .where(eq(conversations.id, id));
@@ -55,7 +63,10 @@ export class ConversationRepository {
   }
 
   async delete(id: string): Promise<boolean> {
-    const deleted = await this.db.delete(conversations).where(eq(conversations.id, id)).returning({ id: conversations.id });
+    const deleted = await this.db
+      .delete(conversations)
+      .where(eq(conversations.id, id))
+      .returning({ id: conversations.id });
     return deleted.length > 0;
   }
 }

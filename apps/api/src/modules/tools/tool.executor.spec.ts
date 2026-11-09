@@ -12,14 +12,17 @@ const context = (): ToolContext => ({
   signal: new AbortController().signal,
 });
 
-const makeTool = (overrides: Partial<Tool<{ n?: number }, unknown>> & { execute: Tool<{ n?: number }>['execute'] }): Tool => ({
-  name: 'calculate',
-  description: 'test',
-  schema: z.object({ n: z.number().optional() }),
-  timeoutMs: 50,
-  mutating: false,
-  ...overrides,
-}) as Tool;
+const makeTool = (
+  overrides: Partial<Tool<{ n?: number }, unknown>> & { execute: Tool<{ n?: number }>['execute'] },
+): Tool =>
+  ({
+    name: 'calculate',
+    description: 'test',
+    schema: z.object({ n: z.number().optional() }),
+    timeoutMs: 50,
+    mutating: false,
+    ...overrides,
+  }) as Tool;
 
 describe('ToolExecutor', () => {
   it('runs calls concurrently and preserves call order in results', async () => {
@@ -69,12 +72,19 @@ describe('ToolExecutor', () => {
     expect(badSchema?.ok).toBe(false);
     expect(badSchema?.error).toMatch(/Invalid arguments/u);
     expect(unknown).toMatchObject({ ok: false, error: 'Unknown tool "nope"' });
-    expect(ToolExecutor.toModelPayload(badJson!)).toBe('{"ok":false,"error":"Arguments were not valid JSON"}');
+    expect(ToolExecutor.toModelPayload(badJson!)).toBe(
+      '{"ok":false,"error":"Arguments were not valid JSON"}',
+    );
   });
 
   it('times out slow tools and surfaces thrown errors', async () => {
     const hanging = makeTool({ timeoutMs: 20, execute: () => new Promise(() => undefined) });
-    const throwing = makeTool({ name: 'get_leave_balance', execute: async () => { throw new Error('HR system down'); } });
+    const throwing = makeTool({
+      name: 'get_leave_balance',
+      execute: async () => {
+        throw new Error('HR system down');
+      },
+    });
     const executor = new ToolExecutor(new ToolRegistry([hanging, throwing]));
     const [timedOut, failed] = await executor.executeAll(
       [
@@ -93,7 +103,10 @@ describe('ToolRegistry', () => {
     const tool = makeTool({ execute: async () => ({ data: 1, summary: '1' }) });
     const [definition] = new ToolRegistry([tool]).toLlmDefinitions();
     expect(definition).toMatchObject({ name: 'calculate', description: 'test' });
-    expect(definition?.parameters).toMatchObject({ type: 'object', properties: { n: { type: 'number' } } });
+    expect(definition?.parameters).toMatchObject({
+      type: 'object',
+      properties: { n: { type: 'number' } },
+    });
     expect(definition?.parameters).not.toHaveProperty('$schema');
   });
 

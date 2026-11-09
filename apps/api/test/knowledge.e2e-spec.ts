@@ -26,9 +26,12 @@ describe('Knowledge API (e2e)', () => {
   });
 
   it('GET /api/knowledge/documents/:id returns content and section breakdown', async () => {
-    const list = (await request(app.getHttpServer()).get('/api/knowledge/documents')).body as DocumentListResponse;
+    const list = (await request(app.getHttpServer()).get('/api/knowledge/documents'))
+      .body as DocumentListResponse;
     const id = list.documents[0]!.id;
-    const response = await request(app.getHttpServer()).get(`/api/knowledge/documents/${id}`).expect(200);
+    const response = await request(app.getHttpServer())
+      .get(`/api/knowledge/documents/${id}`)
+      .expect(200);
     expect(response.body.content.length).toBeGreaterThan(100);
     expect(response.body.sections.length).toBeGreaterThan(0);
   });
@@ -58,7 +61,10 @@ describe('Knowledge API (e2e)', () => {
   });
 
   it('rejects invalid search payloads with a normalised validation error', async () => {
-    const response = await request(app.getHttpServer()).post('/api/knowledge/search').send({ query: '' }).expect(400);
+    const response = await request(app.getHttpServer())
+      .post('/api/knowledge/search')
+      .send({ query: '' })
+      .expect(400);
     expect(response.body).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' });
   });
 

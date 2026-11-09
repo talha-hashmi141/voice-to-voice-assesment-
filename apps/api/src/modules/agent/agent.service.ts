@@ -14,7 +14,10 @@ export class AgentService {
   ) {}
 
   async runTextTurn(request: TurnRequest, signal?: AbortSignal): Promise<TurnResponse> {
-    const conversation = await this.conversations.ensure(request.conversationId, request.userContext);
+    const conversation = await this.conversations.ensure(
+      request.conversationId,
+      request.userContext,
+    );
     const turnId = newId();
     let completed: AgentTurnResult | undefined;
 

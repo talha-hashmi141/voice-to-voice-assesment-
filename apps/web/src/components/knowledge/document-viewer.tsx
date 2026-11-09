@@ -4,10 +4,33 @@ import type { DocumentDetail } from '@voice-agent/contracts';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function DocumentViewer({ document, loading, open, onOpenChange }: { document: DocumentDetail | null; loading: boolean; open: boolean; onOpenChange: (open: boolean) => void }) {
+/** The sheet title already shows the document title, so drop a leading H1 that repeats it. */
+const withoutLeadingTitle = (content: string, title: string): string =>
+  content.replace(
+    new RegExp(`^\\s*#\\s+${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n`, 'u'),
+    '',
+  );
+
+export function DocumentViewer({
+  document,
+  loading,
+  open,
+  onOpenChange,
+}: {
+  document: DocumentDetail | null;
+  loading: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
@@ -33,7 +56,9 @@ export function DocumentViewer({ document, loading, open, onOpenChange }: { docu
             </div>
           ) : (
             <div className="prose prose-sm max-w-none dark:prose-invert [&_h1]:text-lg [&_h2]:mt-5 [&_h2]:text-base [&_table]:text-xs [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{document.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {withoutLeadingTitle(document.content, document.title)}
+              </ReactMarkdown>
             </div>
           )}
         </div>

@@ -19,7 +19,13 @@ export const SearchKnowledgeBaseArgsSchema = z.object({
     .describe(
       'One to three different phrasings of what to look up. Use the conversation context to make them specific.',
     ),
-  topK: z.number().int().min(1).max(10).optional().describe('How many passages to return (default 5).'),
+  topK: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .optional()
+    .describe('How many passages to return (default 5).'),
 });
 export type SearchKnowledgeBaseArgs = z.infer<typeof SearchKnowledgeBaseArgsSchema>;
 
@@ -51,7 +57,12 @@ export type GetLeaveBalanceArgs = z.infer<typeof GetLeaveBalanceArgsSchema>;
 
 export const CreateSupportTicketArgsSchema = z.object({
   title: z.string().trim().min(3).max(120).describe('Short summary of the issue.'),
-  description: z.string().trim().min(3).max(2000).describe('What happened and what the user needs.'),
+  description: z
+    .string()
+    .trim()
+    .min(3)
+    .max(2000)
+    .describe('What happened and what the user needs.'),
   priority: TicketPrioritySchema.default('medium').describe('low | medium | high | urgent'),
 });
 export type CreateSupportTicketArgs = z.infer<typeof CreateSupportTicketArgsSchema>;

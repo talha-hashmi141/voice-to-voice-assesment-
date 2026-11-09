@@ -15,13 +15,19 @@ export function ConversationDetail({ id }: { id: string }) {
   const conversation = useConversation(id);
   const [sources, setSources] = useState<{ list: Source[]; focus: number } | null>(null);
   const detail = conversation.data;
-  const lastAssistant = detail ? [...detail.messages].reverse().find((m) => m.role === 'assistant') : undefined;
+  const lastAssistant = detail
+    ? [...detail.messages].reverse().find((m) => m.role === 'assistant')
+    : undefined;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title={detail?.title ?? 'Conversation'}
-        description={detail ? `${detail.userContext?.name ?? 'Unknown persona'} · ${detail.messages.length} messages` : undefined}
+        description={
+          detail
+            ? `${detail.userContext?.name ?? 'Unknown persona'} · ${detail.messages.length} messages`
+            : undefined
+        }
         actions={
           <>
             <Button size="sm" variant="ghost" render={<Link href="/conversations" />}>
@@ -43,12 +49,16 @@ export function ConversationDetail({ id }: { id: string }) {
             ))}
           </div>
         ) : null}
-        {conversation.error ? <p className="p-6 text-sm text-state-error">{conversation.error}</p> : null}
+        {conversation.error ? (
+          <p className="p-6 text-sm text-state-error">{conversation.error}</p>
+        ) : null}
         {detail ? (
           <TranscriptList
             messages={detail.messages}
             onCite={(source) => {
-              const owner = [...detail.messages].reverse().find((m) => m.sources.some((s) => s.chunkId === source.chunkId));
+              const owner = [...detail.messages]
+                .reverse()
+                .find((m) => m.sources.some((s) => s.chunkId === source.chunkId));
               setSources({ list: owner?.sources ?? [source], focus: source.index });
             }}
             emptyHint="This conversation has no messages."
@@ -60,7 +70,12 @@ export function ConversationDetail({ id }: { id: string }) {
           <LatencyBadges metrics={lastAssistant.metrics} />
         </div>
       ) : null}
-      <SourcesSheet sources={sources?.list ?? []} focusIndex={sources?.focus ?? null} open={!!sources} onOpenChange={(open) => !open && setSources(null)} />
+      <SourcesSheet
+        sources={sources?.list ?? []}
+        focusIndex={sources?.focus ?? null}
+        open={!!sources}
+        onOpenChange={(open) => !open && setSources(null)}
+      />
     </div>
   );
 }

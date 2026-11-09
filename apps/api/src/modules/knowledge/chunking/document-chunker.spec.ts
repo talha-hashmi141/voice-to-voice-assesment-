@@ -2,7 +2,8 @@ import { DocumentChunker } from './document-chunker';
 import { splitTextRecursively } from './recursive-text-splitter';
 import { countTokens } from './tokens';
 
-const sentence = (i: number) => `Sentence number ${i} explains an important policy detail about expenses.`;
+const sentence = (i: number) =>
+  `Sentence number ${i} explains an important policy detail about expenses.`;
 const longParagraphs = Array.from({ length: 6 }, (_, p) =>
   Array.from({ length: 12 }, (_, i) => sentence(p * 12 + i)).join(' '),
 ).join('\n\n');
@@ -18,7 +19,9 @@ describe('splitTextRecursively', () => {
   });
 
   it('returns the text untouched when it already fits', () => {
-    expect(splitTextRecursively('short text', { maxTokens: 50, overlapTokens: 10 })).toEqual(['short text']);
+    expect(splitTextRecursively('short text', { maxTokens: 50, overlapTokens: 10 })).toEqual([
+      'short text',
+    ]);
   });
 });
 
@@ -27,7 +30,11 @@ describe('DocumentChunker', () => {
   const markdown = `# Expense Policy\n\n## Receipts\n\nA receipt is required for every expense above $25.\n\n## Tiny\n\nShort note.\n\n## Per diem\n\n${longParagraphs}\n`;
 
   it('produces ordered chunks with section paths and contextual headers', () => {
-    const chunks = chunker.chunk('Expense Policy', markdown, { maxTokens: 150, overlapTokens: 20, minTokens: 40 });
+    const chunks = chunker.chunk('Expense Policy', markdown, {
+      maxTokens: 150,
+      overlapTokens: 20,
+      minTokens: 40,
+    });
     expect(chunks.map((c) => c.ordinal)).toEqual(chunks.map((_, i) => i));
     expect(chunks[0]?.sectionPath).toBe('Receipts');
     expect(chunks[0]?.embeddedText).toContain(
@@ -38,7 +45,11 @@ describe('DocumentChunker', () => {
   });
 
   it('merges tiny sections into the previous chunk of the same parent', () => {
-    const chunks = chunker.chunk('Expense Policy', markdown, { maxTokens: 150, overlapTokens: 20, minTokens: 40 });
+    const chunks = chunker.chunk('Expense Policy', markdown, {
+      maxTokens: 150,
+      overlapTokens: 20,
+      minTokens: 40,
+    });
     expect(chunks[0]?.content).toContain('Short note.');
     expect(chunks[0]?.content).toContain('Tiny');
     expect(chunks.some((c) => c.sectionPath === 'Tiny')).toBe(false);

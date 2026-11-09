@@ -8,7 +8,10 @@
     "./tsconfig/*.json": "./tsconfig/*.json",
     "./eslint/base": "./eslint/base.mjs"
   },
-  "files": ["tsconfig", "eslint"],
+  "files": [
+    "tsconfig",
+    "eslint"
+  ],
   "dependencies": {
     "@eslint/js": "^9.30.0",
     "eslint-config-prettier": "^10.1.8",

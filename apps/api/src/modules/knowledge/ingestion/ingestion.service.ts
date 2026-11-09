@@ -31,7 +31,9 @@ export class IngestionService {
     @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
   ) {}
 
-  async saveDocument(input: DocumentInput): Promise<{ id: string; slug: string; changed: boolean }> {
+  async saveDocument(
+    input: DocumentInput,
+  ): Promise<{ id: string; slug: string; changed: boolean }> {
     const { row, changed } = await this.documents.upsert(input, checksumOf(input));
     return { id: row.id, slug: row.slug, changed };
   }
@@ -47,7 +49,13 @@ export class IngestionService {
     if (upToDate && !options.force) {
       const existing = await this.chunks.findByDocument(document.id);
       if (existing.length) {
-        return { documentId: document.id, slug, title: document.title, chunks: existing.length, skipped: true };
+        return {
+          documentId: document.id,
+          slug,
+          title: document.title,
+          chunks: existing.length,
+          skipped: true,
+        };
       }
     }
 
@@ -73,12 +81,23 @@ export class IngestionService {
     await this.documents.markIndexed(document.id, this.embeddings.model);
     await options.onProgress?.(100, 'done');
 
-    this.logger.log(`Indexed "${document.title}" → ${pieces.length} chunks (${this.embeddings.model})`);
-    return { documentId: document.id, slug, title: document.title, chunks: pieces.length, skipped: false };
+    this.logger.log(
+      `Indexed "${document.title}" → ${pieces.length} chunks (${this.embeddings.model})`,
+    );
+    return {
+      documentId: document.id,
+      slug,
+      title: document.title,
+      chunks: pieces.length,
+      skipped: false,
+    };
   }
 
   /** Inline (synchronous) ingestion of a directory – used by the seed script and tests. */
-  async ingestDirectory(directory: string, options: { force?: boolean } = {}): Promise<IndexResult[]> {
+  async ingestDirectory(
+    directory: string,
+    options: { force?: boolean } = {},
+  ): Promise<IndexResult[]> {
     const inputs = await this.loader.loadDirectory(directory);
     const results: IndexResult[] = [];
     for (const input of inputs) {

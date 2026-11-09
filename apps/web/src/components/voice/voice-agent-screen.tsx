@@ -29,7 +29,9 @@ export function VoiceAgentScreen({ conversationId }: { conversationId?: string }
   const [traceOpen, setTraceOpen] = useState(false);
 
   const openSource = (source: Source) => {
-    const owner = [...session.messages].reverse().find((m) => m.sources.some((s) => s.chunkId === source.chunkId));
+    const owner = [...session.messages]
+      .reverse()
+      .find((m) => m.sources.some((s) => s.chunkId === source.chunkId));
     setSources({ list: owner?.sources ?? [source], focus: source.index });
   };
 
@@ -47,13 +49,18 @@ export function VoiceAgentScreen({ conversationId }: { conversationId?: string }
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5 md:px-6">
         <div className="mr-auto flex items-center gap-2">
           <h1 className="text-sm font-semibold">Voice agent</h1>
-          <Badge variant="outline" className={cn('h-5 capitalize', CONNECTION_STYLES[session.connection])}>
+          <Badge
+            variant="outline"
+            className={cn('h-5 capitalize', CONNECTION_STYLES[session.connection])}
+          >
             {session.connection}
           </Badge>
           {session.provider ? (
             <Tooltip>
               <TooltipTrigger
-                render={<Badge variant="secondary" className="h-5 font-mono text-[10px] uppercase" />}
+                render={
+                  <Badge variant="secondary" className="h-5 font-mono text-[10px] uppercase" />
+                }
               >
                 {session.provider}
               </TooltipTrigger>
@@ -65,7 +72,11 @@ export function VoiceAgentScreen({ conversationId }: { conversationId?: string }
             </Tooltip>
           ) : null}
         </div>
-        <PersonaSelect value={session.persona} onChange={(p) => void session.changePersona(p)} disabled={busy} />
+        <PersonaSelect
+          value={session.persona}
+          onChange={(p) => void session.changePersona(p)}
+          disabled={busy}
+        />
         <div className="flex rounded-lg border p-0.5" role="radiogroup" aria-label="Input mode">
           {(
             [
@@ -93,7 +104,13 @@ export function VoiceAgentScreen({ conversationId }: { conversationId?: string }
           <RotateCcwIcon className="size-3.5" />
           Reset
         </Button>
-        <Button size="sm" variant="ghost" className="lg:hidden" onClick={() => setTraceOpen(true)} aria-label="Show agent trace">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="lg:hidden"
+          onClick={() => setTraceOpen(true)}
+          aria-label="Show agent trace"
+        >
           <ActivityIcon className="size-3.5" />
           Trace
         </Button>
@@ -102,10 +119,16 @@ export function VoiceAgentScreen({ conversationId }: { conversationId?: string }
       <div className="flex min-h-0 flex-1">
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <TranscriptList messages={session.messages} streamingText={session.streaming?.text ?? null} onCite={openSource} />
+            <TranscriptList
+              messages={session.messages}
+              streamingText={session.streaming?.text ?? null}
+              onCite={openSource}
+            />
           </div>
           <div className="border-t bg-background/80 px-4 pt-4 pb-3 backdrop-blur md:px-6">
-            {session.error ? <p className="mb-2 text-center text-xs text-state-error">{session.error}</p> : null}
+            {session.error ? (
+              <p className="mb-2 text-center text-xs text-state-error">{session.error}</p>
+            ) : null}
             <div className="flex items-center justify-center gap-6">
               <VoiceOrb
                 phase={session.phase}
@@ -118,7 +141,12 @@ export function VoiceAgentScreen({ conversationId }: { conversationId?: string }
                 onPressEnd={() => void session.stopListening()}
               />
               {busy ? (
-                <Button variant="outline" size="sm" onClick={session.interrupt} aria-label="Stop the current answer">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={session.interrupt}
+                  aria-label="Stop the current answer"
+                >
                   <SquareIcon className="size-3.5" />
                   Stop
                 </Button>
@@ -132,23 +160,46 @@ export function VoiceAgentScreen({ conversationId }: { conversationId?: string }
                 aria-label="Type a question"
                 disabled={session.connection !== 'connected'}
               />
-              <Button type="submit" size="icon" variant="outline" disabled={!draft.trim() || session.connection !== 'connected'} aria-label="Send">
+              <Button
+                type="submit"
+                size="icon"
+                variant="outline"
+                disabled={!draft.trim() || session.connection !== 'connected'}
+                aria-label="Send"
+              >
                 <SendIcon className="size-4" />
               </Button>
             </form>
-            {!session.mic.supported ? <p className="mt-2 text-center text-xs text-muted-foreground">Microphone access is not available in this browser; use the text box.</p> : null}
+            {!session.mic.supported ? (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                Microphone access is not available in this browser; use the text box.
+              </p>
+            ) : null}
           </div>
         </section>
         <aside className="hidden w-[360px] shrink-0 border-l lg:block">
-          <AgentTracePanel trace={session.trace} metrics={session.lastMetrics} phase={session.phase} />
+          <AgentTracePanel
+            trace={session.trace}
+            metrics={session.lastMetrics}
+            phase={session.phase}
+          />
         </aside>
       </div>
 
-      <SourcesSheet sources={sources?.list ?? []} focusIndex={sources?.focus ?? null} open={!!sources} onOpenChange={(open) => !open && setSources(null)} />
+      <SourcesSheet
+        sources={sources?.list ?? []}
+        focusIndex={sources?.focus ?? null}
+        open={!!sources}
+        onOpenChange={(open) => !open && setSources(null)}
+      />
       <Sheet open={traceOpen} onOpenChange={setTraceOpen}>
         <SheetContent side="right" className="w-full p-0 sm:max-w-md">
           <SheetTitle className="sr-only">Agent trace</SheetTitle>
-          <AgentTracePanel trace={session.trace} metrics={session.lastMetrics} phase={session.phase} />
+          <AgentTracePanel
+            trace={session.trace}
+            metrics={session.lastMetrics}
+            phase={session.phase}
+          />
         </SheetContent>
       </Sheet>
     </div>

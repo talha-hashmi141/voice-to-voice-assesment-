@@ -1,7 +1,18 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { type AgentStep, type AgentStepType, type TurnMetrics, type UserContext } from '@voice-agent/contracts';
+import {
+  type AgentStep,
+  type AgentStepType,
+  type TurnMetrics,
+  type UserContext,
+} from '@voice-agent/contracts';
 import { AppConfigService, Stopwatch, truncate } from '../../common';
-import { ConversationRepository, deriveTitle, MemoryService, MessageRepository, toMessage } from '../conversations';
+import {
+  ConversationRepository,
+  deriveTitle,
+  MemoryService,
+  MessageRepository,
+  toMessage,
+} from '../conversations';
 import { LLM_PROVIDER, type LlmMessage, type LlmProvider, type LlmToolCall } from '../llm';
 import { CitationRegistry, type ToolContext, ToolExecutor, ToolRegistry } from '../tools';
 import { type AgentEvent } from './agent-events';
@@ -58,9 +69,19 @@ export class AgentRuntime {
     const stopwatch = input.stopwatch ?? new Stopwatch();
     const steps: AgentStep[] = [];
     let stepSeq = 0;
-    const addStep = (type: AgentStepType, label: string, data?: Record<string, unknown>, durationMs?: number): AgentStep => {
+    const addStep = (
+      type: AgentStepType,
+      label: string,
+      data?: Record<string, unknown>,
+      durationMs?: number,
+    ): AgentStep => {
       stepSeq += 1;
-      const step: AgentStep = { id: `${input.turnId}-${stepSeq}`, type, at: stopwatch.elapsed(), label };
+      const step: AgentStep = {
+        id: `${input.turnId}-${stepSeq}`,
+        type,
+        at: stopwatch.elapsed(),
+        label,
+      };
       if (data) step.data = data;
       if (durationMs !== undefined) step.durationMs = durationMs;
       steps.push(step);
@@ -78,11 +99,20 @@ export class AgentRuntime {
     };
 
     const { history, summary } = await this.memory.buildHistory(input.conversationId);
-    const userRow = await this.messages.append({ conversationId: input.conversationId, role: 'user', content: input.userText });
-    await this.conversations.touch(input.conversationId, { titleIfEmpty: deriveTitle(input.userText) });
+    const userRow = await this.messages.append({
+      conversationId: input.conversationId,
+      role: 'user',
+      content: input.userText,
+    });
+    await this.conversations.touch(input.conversationId, {
+      titleIfEmpty: deriveTitle(input.userText),
+    });
 
     const messages: LlmMessage[] = [
-      { role: 'system', content: this.prompts.buildSystemPrompt({ userContext: input.userContext, summary }) },
+      {
+        role: 'system',
+        content: this.prompts.buildSystemPrompt({ userContext: input.userContext, summary }),
+      },
       ...history,
       { role: 'user', content: input.userText },
     ];
@@ -99,20 +129,32 @@ export class AgentRuntime {
           break;
         }
         yield { type: 'state', state: 'thinking' };
-        const thinking = addStep('thinking', step === 0 ? 'Understanding the request' : 'Reviewing tool results');
+        const thinking = addStep(
+          'thinking',
+          step === 0 ? 'Understanding the request' : 'Reviewing tool results',
+        );
         const llmStarted = stopwatch.elapsed();
         metrics.llmCalls += 1;
         text = '';
         const calls: LlmToolCall[] = [];
 
-        for await (const event of this.llm.streamChat({ messages, tools: toolDefinitions, signal })) {
+        for await (const event of this.llm.streamChat({
+          messages,
+          tools: toolDefinitions,
+          signal,
+        })) {
           if (event.type === 'text_delta') {
             if (metrics.firstTokenMs === null) metrics.firstTokenMs = stopwatch.elapsed();
             text += event.delta;
             yield { type: 'text_delta', delta: event.delta };
           } else if (event.type === 'tool_call') {
             calls.push(event.call);
-            yield { type: 'tool_call', callId: event.call.id, name: event.call.name, args: safeParseArgs(event.call.arguments) };
+            yield {
+              type: 'tool_call',
+              callId: event.call.id,
+              name: event.call.name,
+              args: safeParseArgs(event.call.arguments),
+            };
           }
         }
         thinking.durationMs = stopwatch.elapsed() - llmStarted;
@@ -126,13 +168,19 @@ export class AgentRuntime {
 
         yield { type: 'state', state: 'executing_tools' };
         for (const call of calls) {
-          addStep('tool_call', call.name, { callId: call.id, name: call.name, args: safeParseArgs(call.arguments) });
+          addStep('tool_call', call.name, {
+            callId: call.id,
+            name: call.name,
+            args: safeParseArgs(call.arguments),
+          });
         }
         const executions = await this.executor.executeAll(calls, context);
         metrics.toolCalls += executions.length;
 
         for (const execution of executions) {
-          const summaryText = execution.ok ? (execution.result?.summary ?? 'done') : (execution.error ?? 'failed');
+          const summaryText = execution.ok
+            ? (execution.result?.summary ?? 'done')
+            : (execution.error ?? 'failed');
           yield {
             type: 'tool_result',
             callId: execution.call.id,
@@ -151,10 +199,14 @@ export class AgentRuntime {
           const retrieval = execution.ok ? execution.result?.retrieval : undefined;
           if (retrieval) {
             yield { type: 'retrieval_evaluated', callId: execution.call.id, ...retrieval };
-            addStep('retrieval_evaluated', `Retrieval ${retrieval.assessment}: ${retrieval.reason}`, {
-              callId: execution.call.id,
-              ...retrieval,
-            });
+            addStep(
+              'retrieval_evaluated',
+              `Retrieval ${retrieval.assessment}: ${retrieval.reason}`,
+              {
+                callId: execution.call.id,
+                ...retrieval,
+              },
+            );
           }
           messages.push({
             role: 'tool',
@@ -184,7 +236,12 @@ export class AgentRuntime {
 
     const answer = finalText && finalText.trim() ? finalText : FALLBACK_ANSWER;
     const extracted = extractCitations(answer, citations);
-    addStep('answer', extracted.sources.length ? `Answered with ${extracted.sources.length} cited source(s)` : 'Answered');
+    addStep(
+      'answer',
+      extracted.sources.length
+        ? `Answered with ${extracted.sources.length} cited source(s)`
+        : 'Answered',
+    );
 
     const fullMetrics: TurnMetrics = {
       sttMs: null,

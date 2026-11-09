@@ -13,8 +13,11 @@ if (!envFileExists()) {
 }
 
 if (!(await dockerDaemonUp())) {
-  log.warn('Docker daemon not running — run `pnpm bootstrap` once, or start Docker Desktop. Continuing anyway.');
+  log.warn(
+    'Docker daemon not running — run `pnpm bootstrap` once, or start Docker Desktop. Continuing anyway.',
+  );
   process.exit(0);
 }
 const code = await composeUp();
-if (code !== 0) log.warn('docker compose up failed; the API will not be able to reach Postgres/Redis.');
+if (code !== 0)
+  log.warn('docker compose up failed; the API will not be able to reach Postgres/Redis.');

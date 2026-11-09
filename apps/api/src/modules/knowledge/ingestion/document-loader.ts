@@ -5,7 +5,9 @@ import { basename, extname, join } from 'node:path';
 import matter from 'gray-matter';
 import { type DocumentInput } from '../entities';
 
-export const checksumOf = (input: Pick<DocumentInput, 'title' | 'content' | 'category' | 'tags'>): string =>
+export const checksumOf = (
+  input: Pick<DocumentInput, 'title' | 'content' | 'category' | 'tags'>,
+): string =>
   createHash('sha256')
     .update(JSON.stringify([input.title, input.category, input.tags, input.content]))
     .digest('hex');
@@ -21,8 +23,12 @@ export class DocumentLoader {
     const tags = Array.isArray(data.tags) ? data.tags.map(String) : [];
     return {
       slug,
-      title: typeof data.title === 'string' && data.title.trim() ? data.title.trim() : toTitle(slug),
-      category: typeof data.category === 'string' && data.category.trim() ? data.category.trim() : 'general',
+      title:
+        typeof data.title === 'string' && data.title.trim() ? data.title.trim() : toTitle(slug),
+      category:
+        typeof data.category === 'string' && data.category.trim()
+          ? data.category.trim()
+          : 'general',
       tags,
       content: content.trim(),
       sourcePath: sourcePath ?? null,
@@ -33,7 +39,10 @@ export class DocumentLoader {
   async loadDirectory(directory: string): Promise<DocumentInput[]> {
     const entries = await readdir(directory, { withFileTypes: true });
     const files = entries
-      .filter((entry) => entry.isFile() && ['.md', '.markdown'].includes(extname(entry.name).toLowerCase()))
+      .filter(
+        (entry) =>
+          entry.isFile() && ['.md', '.markdown'].includes(extname(entry.name).toLowerCase()),
+      )
       .map((entry) => entry.name)
       .sort();
     return Promise.all(

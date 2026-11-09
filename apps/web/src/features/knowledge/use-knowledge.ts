@@ -39,9 +39,12 @@ export function useReindex(onDone: () => void) {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const start = useCallback(
     async (force: boolean) => {
@@ -53,7 +56,9 @@ export function useReindex(onDone: () => void) {
         const poll = async () => {
           const { jobs: latest } = await knowledgeApi.listJobs();
           const mine = latest.filter((job) => ids.has(job.id));
-          const done = mine.filter((job) => job.status === 'completed' || job.status === 'failed').length;
+          const done = mine.filter(
+            (job) => job.status === 'completed' || job.status === 'failed',
+          ).length;
           setProgress({ done, total: ids.size });
           if (done < ids.size) {
             timer.current = setTimeout(poll, 700);

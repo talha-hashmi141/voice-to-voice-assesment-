@@ -6,7 +6,9 @@ export const supportTickets = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     reference: varchar('reference', { length: 20 }).notNull().unique(),
-    conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
+    conversationId: uuid('conversation_id').references(() => conversations.id, {
+      onDelete: 'set null',
+    }),
     requesterEmployeeId: varchar('requester_employee_id', { length: 50 }).notNull(),
     title: varchar('title', { length: 200 }).notNull(),
     description: text('description').notNull(),

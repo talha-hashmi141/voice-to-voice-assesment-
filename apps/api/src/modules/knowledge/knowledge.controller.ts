@@ -65,12 +65,16 @@ export class KnowledgeController {
   }
 
   @Post('documents')
-  @ApiOperation({ summary: 'Upload a markdown document; indexing runs asynchronously on the ingestion queue' })
+  @ApiOperation({
+    summary: 'Upload a markdown document; indexing runs asynchronously on the ingestion queue',
+  })
   @ApiOkResponse({ type: UploadDocumentResponseDto })
   @ZodSerializerDto(UploadDocumentResponseDto)
   async uploadDocument(@Body() body: UploadDocumentRequestDto): Promise<UploadDocumentResponseDto> {
     const base = slugify(body.title);
-    const slug = (await this.documents.findBySlug(base)) ? `${base}-${shortReference('').slice(1).toLowerCase()}` : base;
+    const slug = (await this.documents.findBySlug(base))
+      ? `${base}-${shortReference('').slice(1).toLowerCase()}`
+      : base;
     const saved = await this.ingestion.saveDocument({
       slug,
       title: body.title,
@@ -94,7 +98,9 @@ export class KnowledgeController {
 
   @Post('search')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Hybrid semantic search (dense + full-text, RRF-fused) with per-channel scores' })
+  @ApiOperation({
+    summary: 'Hybrid semantic search (dense + full-text, RRF-fused) with per-channel scores',
+  })
   @ApiOkResponse({ type: SearchResponseDto })
   @ZodSerializerDto(SearchResponseDto)
   async search(@Body() body: SearchRequestDto): Promise<SearchResponseDto> {
@@ -109,7 +115,10 @@ export class KnowledgeController {
 
   @Post('reindex')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Re-scan the knowledge-base folder and queue indexing jobs for changed (or all, with force=true) documents' })
+  @ApiOperation({
+    summary:
+      'Re-scan the knowledge-base folder and queue indexing jobs for changed (or all, with force=true) documents',
+  })
   @ApiOkResponse({ type: ReindexResponseDto })
   @ZodSerializerDto(ReindexResponseDto)
   async reindex(@Query() query: ReindexQueryDto): Promise<ReindexResponseDto> {

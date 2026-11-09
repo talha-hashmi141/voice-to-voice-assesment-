@@ -19,12 +19,12 @@ Every ticket receives a reference number in the form **TCK-XXXXXX**. Quote it in
 
 ## Priority levels and service targets
 
-| Priority | When to use it | First response target | Resolution target |
-|---|---|---|---|
-| **P1 – Critical** | You cannot work at all, a security incident, a lost or stolen device, or a customer-facing outage | 1 hour | 4 hours |
-| **P2 – High** | A major function is broken and there is no workaround (for example your laptop will not boot) | 4 hours | 1 business day |
-| **P3 – Medium** | Something is broken but you have a workaround (for example a cracked screen, a faulty monitor, software not installing) | 1 business day | 3 business days |
-| **P4 – Low** | Requests and questions: accessories, new software, how-to questions | 2 business days | 5 business days |
+| Priority          | When to use it                                                                                                          | First response target | Resolution target |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------- | ----------------- |
+| **P1 – Critical** | You cannot work at all, a security incident, a lost or stolen device, or a customer-facing outage                       | 1 hour                | 4 hours           |
+| **P2 – High**     | A major function is broken and there is no workaround (for example your laptop will not boot)                           | 4 hours               | 1 business day    |
+| **P3 – Medium**   | Something is broken but you have a workaround (for example a cracked screen, a faulty monitor, software not installing) | 1 business day        | 3 business days   |
+| **P4 – Low**      | Requests and questions: accessories, new software, how-to questions                                                     | 2 business days       | 5 business days   |
 
 Targets are measured during Helpdesk hours. The ticket priority can be changed by the Helpdesk agent after triage; you will be told why.
 

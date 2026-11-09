@@ -1,6 +1,7 @@
 import { MockEmbeddingProvider, tokenizeForHashing } from './mock-embedding.provider';
 
-const cosine = (a: number[], b: number[]) => a.reduce((sum, value, i) => sum + value * (b[i] ?? 0), 0);
+const cosine = (a: number[], b: number[]) =>
+  a.reduce((sum, value, i) => sum + value * (b[i] ?? 0), 0);
 
 describe('MockEmbeddingProvider', () => {
   const provider = new MockEmbeddingProvider();
@@ -28,6 +29,10 @@ describe('MockEmbeddingProvider', () => {
 
   it('normalises simple plural/verb suffixes and drops stopwords', () => {
     expect(tokenizeForHashing('The days were submitted')).toEqual(['day', 'submit']);
-    expect(tokenizeForHashing('company policies for running')).toEqual(['company', 'policy', 'run']);
+    expect(tokenizeForHashing('company policies for running')).toEqual([
+      'company',
+      'policy',
+      'run',
+    ]);
   });
 });

@@ -40,6 +40,9 @@ export class CalculateTool implements Tool<CalculateArgs, CalculateData> {
     }
     const value: unknown = limitedEvaluate(expression);
     const result = math.format(value, { precision: 12 });
-    return { data: { expression: args.expression, result }, summary: `${args.expression} = ${result}` };
+    return {
+      data: { expression: args.expression, result },
+      summary: `${args.expression} = ${result}`,
+    };
   }
 }

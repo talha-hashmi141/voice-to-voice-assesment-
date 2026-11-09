@@ -22,7 +22,13 @@ export class RetrievalEvaluator {
   evaluate(hits: SearchHit[]): RetrievalEvaluation {
     const { strong, weak } = this.embeddings.thresholds;
     const top = hits[0];
-    if (!top) return { assessment: 'none', topScore: null, confidentHits: 0, reason: 'no passages retrieved' };
+    if (!top)
+      return {
+        assessment: 'none',
+        topScore: null,
+        confidentHits: 0,
+        reason: 'no passages retrieved',
+      };
 
     const topDense = top.scores.dense ?? 0;
     const topSparse = top.scores.sparse ?? 0;
@@ -31,7 +37,12 @@ export class RetrievalEvaluator {
     const topScore = Number(Math.max(topDense, 0).toFixed(4));
 
     if (topDense >= strong) {
-      return { assessment: 'strong', topScore, confidentHits, reason: `top similarity ${topScore} ≥ ${strong}` };
+      return {
+        assessment: 'strong',
+        topScore,
+        confidentHits,
+        reason: `top similarity ${topScore} ≥ ${strong}`,
+      };
     }
     if (topDense >= weak && bothChannels) {
       return {
@@ -41,7 +52,11 @@ export class RetrievalEvaluator {
         reason: `similarity ${topScore} with keyword agreement (sparse ${topSparse.toFixed(2)})`,
       };
     }
-    if (topDense >= weak || (bothChannels && topSparse >= 0.6) || (top.scores.dense === null && topSparse >= 0.8)) {
+    if (
+      topDense >= weak ||
+      (bothChannels && topSparse >= 0.6) ||
+      (top.scores.dense === null && topSparse >= 0.8)
+    ) {
       return {
         assessment: 'weak',
         topScore,

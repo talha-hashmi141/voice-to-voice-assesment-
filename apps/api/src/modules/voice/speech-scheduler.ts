@@ -42,10 +42,21 @@ export class SpeechScheduler {
         const audio = await job;
         if (this.cancelled) return;
         if (seq === 0) this.options.onFirstAudio?.();
-        this.queue.push({ type: 'audio', seq, mimeType: audio.mimeType, data: audio.data, text: spoken });
+        this.queue.push({
+          type: 'audio',
+          seq,
+          mimeType: audio.mimeType,
+          data: audio.data,
+          text: spoken,
+        });
       } catch (error) {
         if (this.cancelled || this.options.signal.aborted) return;
-        this.queue.push({ type: 'error', code: 'TTS_FAILED', message: error instanceof Error ? error.message : String(error), fatal: false });
+        this.queue.push({
+          type: 'error',
+          code: 'TTS_FAILED',
+          message: error instanceof Error ? error.message : String(error),
+          fatal: false,
+        });
       }
     });
   }
@@ -71,7 +82,8 @@ export class SpeechScheduler {
       instructions: this.options.instructions,
       signal: this.options.signal,
     });
-    if (this.firstSynthesisMs === null) this.firstSynthesisMs = Math.round(performance.now() - started);
+    if (this.firstSynthesisMs === null)
+      this.firstSynthesisMs = Math.round(performance.now() - started);
     return audio;
   }
 

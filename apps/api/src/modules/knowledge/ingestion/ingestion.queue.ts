@@ -31,7 +31,11 @@ export class IngestionQueueService {
   }
 
   async recentJobs(limit = 50): Promise<IngestionJob[]> {
-    const jobs = await this.queue.getJobs(['waiting', 'active', 'completed', 'failed', 'delayed'], 0, limit - 1);
+    const jobs = await this.queue.getJobs(
+      ['waiting', 'active', 'completed', 'failed', 'delayed'],
+      0,
+      limit - 1,
+    );
     const dtos = await Promise.all(jobs.map((job) => this.toDto(job)));
     return dtos.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   }
@@ -39,8 +43,15 @@ export class IngestionQueueService {
   private async toDto(job: Job<IngestDocumentJobData>): Promise<IngestionJob> {
     const state = await job.getState();
     const status: IngestionJobStatus =
-      state === 'completed' ? 'completed' : state === 'failed' ? 'failed' : state === 'active' ? 'active' : 'queued';
-    const progress = typeof job.progress === 'number' ? job.progress : status === 'completed' ? 100 : 0;
+      state === 'completed'
+        ? 'completed'
+        : state === 'failed'
+          ? 'failed'
+          : state === 'active'
+            ? 'active'
+            : 'queued';
+    const progress =
+      typeof job.progress === 'number' ? job.progress : status === 'completed' ? 100 : 0;
     return {
       id: String(job.id),
       documentSlug: job.data.slug,

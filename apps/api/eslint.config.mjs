@@ -8,4 +8,8 @@ export default [
       '@typescript-eslint/consistent-type-imports': 'off',
     },
   },
+  {
+    files: ['scripts/**/*.ts'],
+    rules: { 'no-console': 'off' },
+  },
 ];

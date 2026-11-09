@@ -3,7 +3,13 @@ import { MemoryService } from './memory.service';
 import { type ConversationRepository, type MessageRepository } from './repositories';
 
 const row = (role: string, content: string, i: number): MessageRow =>
-  ({ id: `m${i}`, conversationId: 'c', role, content, createdAt: new Date(2026, 0, 1, 0, i) }) as unknown as MessageRow;
+  ({
+    id: `m${i}`,
+    conversationId: 'c',
+    role,
+    content,
+    createdAt: new Date(2026, 0, 1, 0, i),
+  }) as unknown as MessageRow;
 
 describe('MemoryService', () => {
   const rows = [
@@ -13,8 +19,12 @@ describe('MemoryService', () => {
     row('user', 'And sick days?', 4),
     row('assistant', 'Ten per year.', 5),
   ];
-  const messages = { listByConversation: jest.fn().mockResolvedValue(rows) } as unknown as MessageRepository;
-  const conversations = { findById: jest.fn().mockResolvedValue({ summary: 'Earlier: asked about holidays.' }) } as unknown as ConversationRepository;
+  const messages = {
+    listByConversation: jest.fn().mockResolvedValue(rows),
+  } as unknown as MessageRepository;
+  const conversations = {
+    findById: jest.fn().mockResolvedValue({ summary: 'Earlier: asked about holidays.' }),
+  } as unknown as ConversationRepository;
   const memory = new MemoryService(messages, conversations);
 
   it('returns user/assistant turns in order, skipping tool rows, with the summary', async () => {

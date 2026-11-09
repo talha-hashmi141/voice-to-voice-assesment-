@@ -11,19 +11,21 @@ const stream = (text: string, size = 4): string[] => {
 
 describe('SentenceChunker', () => {
   it('splits streamed tokens into sentences at terminators', () => {
-    expect(stream('You get twenty days a year. Up to five days carry over! Anything else?')).toEqual([
-      'You get twenty days a year.',
-      'Up to five days carry over!',
-      'Anything else?',
-    ]);
+    expect(
+      stream('You get twenty days a year. Up to five days carry over! Anything else?'),
+    ).toEqual(['You get twenty days a year.', 'Up to five days carry over!', 'Anything else?']);
   });
 
   it('does not split on decimals, abbreviations or very short fragments', () => {
-    expect(stream('The hotel cap is $250.50 per night, e.g. in London. Ask Mr. Smith for details.')).toEqual([
+    expect(
+      stream('The hotel cap is $250.50 per night, e.g. in London. Ask Mr. Smith for details.'),
+    ).toEqual([
       'The hotel cap is $250.50 per night, e.g. in London.',
       'Ask Mr. Smith for details.',
     ]);
-    expect(stream('Yes. That is the rule for new hires.')).toEqual(['Yes. That is the rule for new hires.']);
+    expect(stream('Yes. That is the rule for new hires.')).toEqual([
+      'Yes. That is the rule for new hires.',
+    ]);
   });
 
   it('waits for the token after a terminator before emitting', () => {

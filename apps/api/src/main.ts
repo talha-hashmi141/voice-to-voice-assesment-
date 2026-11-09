@@ -22,10 +22,16 @@ async function bootstrap(): Promise<void> {
     .setDescription('Voice gateway, agent runtime, hybrid retrieval and tools')
     .setVersion('1.0')
     .build();
-  SwaggerModule.setup('api/docs', app, cleanupOpenApiDoc(SwaggerModule.createDocument(app, openapi)));
+  SwaggerModule.setup(
+    'api/docs',
+    app,
+    cleanupOpenApiDoc(SwaggerModule.createDocument(app, openapi)),
+  );
 
   await app.listen(config.port);
-  logger.log(`API listening on http://localhost:${config.port}/api (provider: ${config.aiProvider})`);
+  logger.log(
+    `API listening on http://localhost:${config.port}/api (provider: ${config.aiProvider})`,
+  );
 }
 
 void bootstrap();

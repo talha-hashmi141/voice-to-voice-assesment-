@@ -15,7 +15,9 @@ interface SearchPassage {
 
 /** Words too generic to prove a passage actually answers the question. */
 const GENERIC_TERMS = new Set(
-  'policy policies office company employee employees orbital labs what which there about should could would please have need want know tell work working rules rule information days year years time give get make take much many there their these those from with this that'.split(' '),
+  'policy policies office company employee employees orbital labs what which there about should could would please have need want know tell work working rules rule information days year years time give get make take much many there their these those from with this that'.split(
+    ' ',
+  ),
 );
 const contentWords = (text: string): string[] =>
   text
@@ -55,7 +57,11 @@ export class MockLlmProvider implements LlmProvider {
       .find((m) => m.role === 'assistant' && m.content);
 
     if (toolMessages.length === 0 && toolNames.size) {
-      const calls = this.planCalls(userText, previousAssistant?.role === 'assistant' ? previousAssistant.content : null, toolNames);
+      const calls = this.planCalls(
+        userText,
+        previousAssistant?.role === 'assistant' ? previousAssistant.content : null,
+        toolNames,
+      );
       if (calls.length) {
         for (const call of calls) yield { type: 'tool_call', call };
         yield { type: 'done', finishReason: 'tool_calls' };
@@ -80,14 +86,26 @@ export class MockLlmProvider implements LlmProvider {
     return { id: `mock-call-${this.counter}`, name, arguments: JSON.stringify(args) };
   }
 
-  private planCalls(userText: string, previousAssistant: string | null, available: Set<string>): LlmToolCall[] {
+  private planCalls(
+    userText: string,
+    previousAssistant: string | null,
+    available: Set<string>,
+  ): LlmToolCall[] {
     const text = userText.toLowerCase();
     const calls: LlmToolCall[] = [];
     const confirming = /^(yes|yeah|yep|sure|please do|go ahead|do it|ok(ay)?)\b/u.test(text.trim());
 
-    if (available.has('create_support_ticket') && confirming && previousAssistant?.includes('open a support ticket')) {
+    if (
+      available.has('create_support_ticket') &&
+      confirming &&
+      previousAssistant?.includes('open a support ticket')
+    ) {
       const match = /about: "(.+?)"/u.exec(previousAssistant);
-      const priority = /urgent|critical/u.test(text) ? 'urgent' : /high/u.test(text) ? 'high' : 'medium';
+      const priority = /urgent|critical/u.test(text)
+        ? 'urgent'
+        : /high/u.test(text)
+          ? 'high'
+          : 'medium';
       calls.push(
         this.call('create_support_ticket', {
           title: match?.[1] ?? 'Support request from voice assistant',
@@ -101,10 +119,16 @@ export class MockLlmProvider implements LlmProvider {
     if (available.has('search_knowledge_base')) {
       calls.push(this.call('search_knowledge_base', { queries: [userText], topK: 5 }));
     }
-    if (available.has('get_current_datetime') && /\b(today|date|time|week|month|december|january|holiday|tomorrow|year)\b/u.test(text)) {
+    if (
+      available.has('get_current_datetime') &&
+      /\b(today|date|time|week|month|december|january|holiday|tomorrow|year)\b/u.test(text)
+    ) {
       calls.push(this.call('get_current_datetime', {}));
     }
-    if (available.has('get_leave_balance') && /\b(pto|vacation|days? off|leave|balance|time off|holiday)\b/u.test(text)) {
+    if (
+      available.has('get_leave_balance') &&
+      /\b(pto|vacation|days? off|leave|balance|time off|holiday)\b/u.test(text)
+    ) {
       calls.push(this.call('get_leave_balance', {}));
     }
     return calls;
@@ -114,7 +138,9 @@ export class MockLlmProvider implements LlmProvider {
     const results = toolMessages.flatMap((message) => {
       if (message.role !== 'tool') return [];
       try {
-        return [{ name: message.name, payload: JSON.parse(message.content) as Record<string, unknown> }];
+        return [
+          { name: message.name, payload: JSON.parse(message.content) as Record<string, unknown> },
+        ];
       } catch {
         return [];
       }
@@ -129,8 +155,7 @@ export class MockLlmProvider implements LlmProvider {
 
     const search = results.find((r) => r.name === 'search_knowledge_base');
     const searchData = search?.payload.data as
-      | { assessment: 'strong' | 'weak' | 'none'; passages: SearchPassage[] }
-      | undefined;
+      { assessment: 'strong' | 'weak' | 'none'; passages: SearchPassage[] } | undefined;
     const top = searchData?.passages.find((passage) => passageAnswers(userText, passage));
     if (searchData && searchData.assessment !== 'none' && top) {
       const plain = top.text
@@ -139,13 +164,18 @@ export class MockLlmProvider implements LlmProvider {
         .replace(/\|/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-      const sentences = plain.split(/(?<=[.!?])\s+/u).slice(0, 2).join(' ');
+      const sentences = plain
+        .split(/(?<=[.!?])\s+/u)
+        .slice(0, 2)
+        .join(' ');
       parts.push(`According to the ${top.document} (${top.section}): ${sentences} [${top.ref}]`);
       if (searchData.assessment === 'weak') {
         parts.push('That is the closest information I have; it may not fully cover your question.');
       }
     } else if (results.some((r) => r.name !== 'search_knowledge_base' && r.payload.ok)) {
-      parts.push("I couldn't find a matching policy in the knowledge base, but here is what I do know.");
+      parts.push(
+        "I couldn't find a matching policy in the knowledge base, but here is what I do know.",
+      );
     } else {
       parts.push(
         "I couldn't find anything about that in the Orbital Labs knowledge base, so I'd rather not guess. You can ask People Operations, or I can open a support ticket for you.",
@@ -154,7 +184,11 @@ export class MockLlmProvider implements LlmProvider {
 
     const balance = results.find((r) => r.name === 'get_leave_balance' && r.payload.ok);
     if (balance) {
-      const data = balance.payload.data as { ptoRemainingDays: number; ptoTotalDays: number; ptoUsedDays: number };
+      const data = balance.payload.data as {
+        ptoRemainingDays: number;
+        ptoTotalDays: number;
+        ptoUsedDays: number;
+      };
       parts.push(
         `You currently have ${data.ptoRemainingDays} of your ${data.ptoTotalDays} PTO days left, having used ${data.ptoUsedDays}.`,
       );
@@ -167,7 +201,9 @@ export class MockLlmProvider implements LlmProvider {
     }
 
     if (/\b(broken|cracked|not working|damaged|stolen|lost)\b/u.test(userText.toLowerCase())) {
-      parts.push(`Would you like me to open a support ticket about: "${userText.replace(/"/g, "'")}"?`);
+      parts.push(
+        `Would you like me to open a support ticket about: "${userText.replace(/"/g, "'")}"?`,
+      );
     }
     return parts.join(' ');
   }

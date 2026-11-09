@@ -51,5 +51,7 @@ export function reciprocalRankFusion(lists: RankedList[], k = DEFAULT_RRF_K): Fu
   const maxPossible = lists.length / (k + 1) || 1;
   return Array.from(table.values())
     .map(({ raw, ...rest }) => ({ ...rest, fused: Number((raw / maxPossible).toFixed(6)) }))
-    .sort((a, b) => b.fused - a.fused || (b.dense ?? 0) - (a.dense ?? 0) || a.id.localeCompare(b.id));
+    .sort(
+      (a, b) => b.fused - a.fused || (b.dense ?? 0) - (a.dense ?? 0) || a.id.localeCompare(b.id),
+    );
 }

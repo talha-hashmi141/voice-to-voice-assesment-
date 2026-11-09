@@ -18,19 +18,43 @@ interface EvalCase {
 }
 
 const CASES: EvalCase[] = [
-  { question: 'How long do I have to claim back money I spent on a business trip?', expected: ['expense-and-travel-policy'] },
-  { question: 'Do I need to keep the receipt for a $20 taxi ride?', expected: ['expense-and-travel-policy'] },
-  { question: 'What is the hotel budget per night in London?', expected: ['expense-and-travel-policy'] },
-  { question: 'What happens to my unused vacation at the end of the year?', expected: ['pto-and-leave-policy'] },
+  {
+    question: 'How long do I have to claim back money I spent on a business trip?',
+    expected: ['expense-and-travel-policy'],
+  },
+  {
+    question: 'Do I need to keep the receipt for a $20 taxi ride?',
+    expected: ['expense-and-travel-policy'],
+  },
+  {
+    question: 'What is the hotel budget per night in London?',
+    expected: ['expense-and-travel-policy'],
+  },
+  {
+    question: 'What happens to my unused vacation at the end of the year?',
+    expected: ['pto-and-leave-policy'],
+  },
   { question: 'How many days off do new employees get?', expected: ['pto-and-leave-policy'] },
-  { question: 'How much notice do I need to give for a two-week vacation?', expected: ['pto-and-leave-policy'] },
+  {
+    question: 'How much notice do I need to give for a two-week vacation?',
+    expected: ['pto-and-leave-policy'],
+  },
   { question: 'Which days is the office closed in December?', expected: ['company-holidays-2026'] },
   { question: 'Can I work from Portugal for a month?', expected: ['remote-work-policy'] },
-  { question: 'When do I have to be online every day?', expected: ['remote-work-policy', 'employee-handbook-overview'] },
+  {
+    question: 'When do I have to be online every day?',
+    expected: ['remote-work-policy', 'employee-handbook-overview'],
+  },
   { question: 'My laptop screen is cracked, what should I do?', expected: ['equipment-policy'] },
-  { question: 'Someone stole my phone, who do I tell?', expected: ['it-security-policy', 'equipment-policy'] },
+  {
+    question: 'Someone stole my phone, who do I tell?',
+    expected: ['it-security-policy', 'equipment-policy'],
+  },
   { question: 'How fast does IT respond to an urgent ticket?', expected: ['helpdesk-and-support'] },
-  { question: 'Does the company match my retirement contributions?', expected: ['benefits-overview'] },
+  {
+    question: 'Does the company match my retirement contributions?',
+    expected: ['benefits-overview'],
+  },
   { question: 'How much can I spend on courses each year?', expected: ['benefits-overview'] },
   { question: 'When are promotions decided?', expected: ['performance-and-promotions'] },
   { question: 'Can I accept a present from a supplier?', expected: ['code-of-conduct'] },
@@ -71,7 +95,9 @@ async function main(): Promise<void> {
         rows.push({
           question: testCase.question.slice(0, 52),
           top: `${slugs[0] ?? '-'} (${outcome.hits[0]?.scores.fused.toFixed(2) ?? '-'})`,
-          rank: testCase.expected.length ? (rank || '✗').toString() : `n/a (${evaluation.assessment})`,
+          rank: testCase.expected.length
+            ? (rank || '✗').toString()
+            : `n/a (${evaluation.assessment})`,
           dense: outcome.hits[0]?.scores.dense?.toFixed(2) ?? '-',
           sparse: outcome.hits[0]?.scores.sparse?.toFixed(2) ?? '-',
           grade: evaluation.assessment,

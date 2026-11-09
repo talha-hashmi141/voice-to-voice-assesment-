@@ -39,14 +39,14 @@ The introductory period lasts **90 days**. PTO accrues from day one but can be t
 
 ## Tools you will use
 
-| Tool | Purpose |
-|---|---|
-| OrbitHR | HR portal: PTO, payslips, benefits, personal details |
-| OrbitExpense | Expense reports and reimbursements |
-| Slack | Day-to-day communication |
-| Confluence | Documentation and decision records |
-| Helpdesk portal | IT support tickets |
-| 1Password | Password manager |
+| Tool            | Purpose                                              |
+| --------------- | ---------------------------------------------------- |
+| OrbitHR         | HR portal: PTO, payslips, benefits, personal details |
+| OrbitExpense    | Expense reports and reimbursements                   |
+| Slack           | Day-to-day communication                             |
+| Confluence      | Documentation and decision records                   |
+| Helpdesk portal | IT support tickets                                   |
+| 1Password       | Password manager                                     |
 
 ## Questions
 

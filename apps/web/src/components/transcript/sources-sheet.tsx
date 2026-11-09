@@ -1,8 +1,15 @@
 'use client';
 
 import type { Source } from '@voice-agent/contracts';
+import { PassageMarkdown } from '@/components/common';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 export interface SourcesSheetProps {
@@ -24,7 +31,10 @@ export function SourcesSheet({ sources, open, focusIndex, onOpenChange }: Source
           {sources.map((source) => (
             <article
               key={source.chunkId}
-              className={cn('rounded-lg border p-3 text-sm', focusIndex === source.index && 'border-primary ring-2 ring-primary/30')}
+              className={cn(
+                'rounded-lg border p-3 text-sm',
+                focusIndex === source.index && 'border-primary ring-2 ring-primary/30',
+              )}
             >
               <header className="mb-1.5 flex items-center gap-2">
                 <span className="inline-flex size-5 items-center justify-center rounded-sm bg-primary/10 font-mono text-xs font-semibold text-primary">
@@ -36,7 +46,7 @@ export function SourcesSheet({ sources, open, focusIndex, onOpenChange }: Source
                 </Badge>
               </header>
               <p className="mb-2 text-xs text-muted-foreground">{source.sectionPath}</p>
-              <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">{source.excerpt}</p>
+              <PassageMarkdown content={source.excerpt} />
             </article>
           ))}
         </div>

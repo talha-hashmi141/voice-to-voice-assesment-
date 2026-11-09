@@ -1,7 +1,8 @@
 ---
 title: Expense and Travel Policy
 category: finance
-tags: [expenses, reimbursement, travel, receipts, per-diem, flights, hotels, mileage, corporate-card]
+tags:
+  [expenses, reimbursement, travel, receipts, per-diem, flights, hotels, mileage, corporate-card]
 summary: What Orbital Labs reimburses, spending limits for travel, receipt rules and the 30-day deadline for submitting expenses.
 ---
 

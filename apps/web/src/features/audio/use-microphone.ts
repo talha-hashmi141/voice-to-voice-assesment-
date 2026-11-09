@@ -1,7 +1,7 @@
 'use client';
 
 import type { MicVAD } from '@ricky0123/vad-web';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLatest } from '@/lib/hooks';
 import { encodeWav, rmsLevel } from './wav-encoder';
 
@@ -17,6 +17,15 @@ export interface UseMicrophoneOptions {
 }
 
 const SAMPLE_RATE = 16_000;
+
+const subscribeNoop = () => () => {};
+/** Hydration-safe: the server (and the first client render) assume support, then the real value applies. */
+const useMicrophoneSupported = () =>
+  useSyncExternalStore(
+    subscribeNoop,
+    () => !!navigator.mediaDevices?.getUserMedia,
+    () => true,
+  );
 
 /**
  * Microphone capture with on-device voice-activity detection (Silero VAD via ONNX runtime).
@@ -49,7 +58,11 @@ export function useMicrophone(options: UseMicrophoneOptions) {
         minSpeechMs: 250,
         submitUserSpeechOnPause: true,
         onSpeechRealStart: () => latest.current.onSpeechStart?.(),
-        onSpeechEnd: (audio) => latest.current.onUtterance(encodeWav(audio, SAMPLE_RATE), Math.round((audio.length / SAMPLE_RATE) * 1000)),
+        onSpeechEnd: (audio) =>
+          latest.current.onUtterance(
+            encodeWav(audio, SAMPLE_RATE),
+            Math.round((audio.length / SAMPLE_RATE) * 1000),
+          ),
         onFrameProcessed: (_probabilities, frame) => latest.current.onLevel?.(rmsLevel(frame)),
         onVADMisfire: () => latest.current.onLevel?.(0),
       });
@@ -96,6 +109,6 @@ export function useMicrophone(options: UseMicrophoneOptions) {
     [],
   );
 
-  const supported = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+  const supported = useMicrophoneSupported();
   return { status, error, supported, start, stop };
 }

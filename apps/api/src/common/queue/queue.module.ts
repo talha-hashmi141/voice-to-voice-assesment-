@@ -2,7 +2,12 @@ import { BullModule } from '@nestjs/bullmq';
 import { Global, Module } from '@nestjs/common';
 import { AppConfigService } from '../config';
 
-export function parseRedisUrl(url: string): { host: string; port: number; password?: string; db?: number } {
+export function parseRedisUrl(url: string): {
+  host: string;
+  port: number;
+  password?: string;
+  db?: number;
+} {
   const parsed = new URL(url);
   return {
     host: parsed.hostname || 'localhost',
@@ -21,7 +26,11 @@ export function parseRedisUrl(url: string): { host: string; port: number; passwo
       useFactory: (config: AppConfigService) => ({
         // Key prefix isolates environments sharing one Redis (e.g. dev API vs. e2e tests).
         prefix: config.isTest ? 'voice-agent-test' : 'voice-agent',
-        connection: { ...parseRedisUrl(config.redisUrl), maxRetriesPerRequest: null, enableOfflineQueue: true },
+        connection: {
+          ...parseRedisUrl(config.redisUrl),
+          maxRetriesPerRequest: null,
+          enableOfflineQueue: true,
+        },
         defaultJobOptions: { removeOnComplete: 200, removeOnFail: 200, attempts: 2 },
       }),
     }),

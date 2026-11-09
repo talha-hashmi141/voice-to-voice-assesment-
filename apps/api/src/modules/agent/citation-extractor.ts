@@ -54,6 +54,9 @@ export function extractCitations(text: string, registry: CitationRegistry): Extr
     return resolved.length ? `[${resolved.join(', ')}]` : '';
   });
 
-  const cleaned = rewritten.replace(/\s+([.,;:!?])/gu, '$1').replace(/[ \t]{2,}/gu, ' ').trim();
+  const cleaned = rewritten
+    .replace(/\s+([.,;:!?])/gu, '$1')
+    .replace(/[ \t]{2,}/gu, ' ')
+    .trim();
   return { text: cleaned, spokenText: stripForSpeech(cleaned), sources };
 }

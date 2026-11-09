@@ -3,7 +3,11 @@
  * section path, so a chunk such as "Up to 5 unused days may be carried over" also carries
  * "PTO and Leave Policy > Carryover" semantics. Only `content` is shown to users.
  */
-export function buildEmbeddedText(documentTitle: string, sectionPath: string, content: string): string {
+export function buildEmbeddedText(
+  documentTitle: string,
+  sectionPath: string,
+  content: string,
+): string {
   const header = [`Document: ${documentTitle}`, sectionPath ? `Section: ${sectionPath}` : null]
     .filter(Boolean)
     .join('\n');

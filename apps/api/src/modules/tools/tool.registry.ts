@@ -25,7 +25,10 @@ export class ToolRegistry {
   /** Converts Zod argument schemas into JSON Schema for the model's function-calling API. */
   toLlmDefinitions(): LlmToolDefinition[] {
     return this.list().map((tool) => {
-      const schema = z.toJSONSchema(tool.schema, { target: 'draft-7', io: 'input' }) as Record<string, unknown>;
+      const schema = z.toJSONSchema(tool.schema, { target: 'draft-7', io: 'input' }) as Record<
+        string,
+        unknown
+      >;
       delete schema.$schema;
       return { name: tool.name, description: tool.description, parameters: schema };
     });

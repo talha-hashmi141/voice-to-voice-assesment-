@@ -29,8 +29,14 @@ export const messages = pgTable(
     toolCalls: jsonb('tool_calls').$type<unknown[]>(),
     toolCallId: varchar('tool_call_id', { length: 100 }),
     toolName: varchar('tool_name', { length: 100 }),
-    sources: jsonb('sources').$type<unknown[]>().notNull().default(sql`'[]'::jsonb`),
-    steps: jsonb('steps').$type<unknown[]>().notNull().default(sql`'[]'::jsonb`),
+    sources: jsonb('sources')
+      .$type<unknown[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    steps: jsonb('steps')
+      .$type<unknown[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     metrics: jsonb('metrics').$type<Record<string, unknown>>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

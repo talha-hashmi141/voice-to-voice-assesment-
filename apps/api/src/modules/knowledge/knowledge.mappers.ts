@@ -14,9 +14,13 @@ export const toDocumentSummary = (row: DocumentWithStats): DocumentSummary => ({
   updatedAt: toIso(row.updatedAt),
 });
 
-export const toDocumentDetail = (row: DocumentWithStats, chunks: RetrievedChunk[]): DocumentDetail => {
+export const toDocumentDetail = (
+  row: DocumentWithStats,
+  chunks: RetrievedChunk[],
+): DocumentDetail => {
   const sections = new Map<string, number>();
-  for (const chunk of chunks) sections.set(chunk.sectionPath, (sections.get(chunk.sectionPath) ?? 0) + 1);
+  for (const chunk of chunks)
+    sections.set(chunk.sectionPath, (sections.get(chunk.sectionPath) ?? 0) + 1);
   return {
     ...toDocumentSummary(row),
     content: row.content,

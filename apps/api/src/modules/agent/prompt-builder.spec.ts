@@ -15,7 +15,10 @@ describe('PromptBuilder', () => {
   });
 
   it('appends the rolling summary when present', () => {
-    const prompt = builder.buildSystemPrompt({ userContext: DEFAULT_PERSONA, summary: 'User asked about PTO.' });
+    const prompt = builder.buildSystemPrompt({
+      userContext: DEFAULT_PERSONA,
+      summary: 'User asked about PTO.',
+    });
     expect(prompt).toContain('## Earlier in this conversation\nUser asked about PTO.');
   });
 });

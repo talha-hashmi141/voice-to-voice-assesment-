@@ -97,7 +97,8 @@ const initialState: SessionState = {
 let traceSeq = 0;
 const traceId = () => `trace-${(traceSeq += 1)}`;
 
-const elapsed = (state: SessionState) => (state.turnStartedAt ? Date.now() - state.turnStartedAt : 0);
+const elapsed = (state: SessionState) =>
+  state.turnStartedAt ? Date.now() - state.turnStartedAt : 0;
 
 const TOOL_LABELS: Record<string, string> = {
   search_knowledge_base: 'Searching the knowledge base',
@@ -115,17 +116,39 @@ export const useSessionStore = create<SessionStore>()((set) => ({
   setConnection: (connection) => set({ connection }),
   setPersona: (persona) => set({ persona }),
   setMode: (mode) => set({ mode }),
-  setMicActive: (micActive) => set((state) => ({ micActive, phase: micActive && state.phase === 'idle' ? 'listening' : !micActive && state.phase === 'listening' ? 'idle' : state.phase })),
+  setMicActive: (micActive) =>
+    set((state) => ({
+      micActive,
+      phase:
+        micActive && state.phase === 'idle'
+          ? 'listening'
+          : !micActive && state.phase === 'listening'
+            ? 'idle'
+            : state.phase,
+    })),
   setMicLevel: (micLevel) => set({ micLevel }),
   setPhase: (phase) => set({ phase }),
   setError: (error) => set({ error }),
 
   sessionReady: (payload) =>
-    set({ conversationId: payload.conversationId, persona: payload.userContext, provider: payload.provider, connection: 'connected', error: null }),
+    set({
+      conversationId: payload.conversationId,
+      persona: payload.userContext,
+      provider: payload.provider,
+      connection: 'connected',
+      error: null,
+    }),
 
   loadMessages: (messages) => set({ messages, streaming: null, trace: [] }),
 
-  turnStarted: (turnId) => set({ activeTurnId: turnId, streaming: null, trace: [], error: null, turnStartedAt: Date.now() }),
+  turnStarted: (turnId) =>
+    set({
+      activeTurnId: turnId,
+      streaming: null,
+      trace: [],
+      error: null,
+      turnStartedAt: Date.now(),
+    }),
 
   transcriptReceived: (turnId, text) =>
     set((state) => ({
@@ -149,7 +172,10 @@ export const useSessionStore = create<SessionStore>()((set) => ({
 
   textDelta: (turnId, delta) =>
     set((state) => ({
-      streaming: state.streaming?.turnId === turnId ? { turnId, text: state.streaming.text + delta } : { turnId, text: delta },
+      streaming:
+        state.streaming?.turnId === turnId
+          ? { turnId, text: state.streaming.text + delta }
+          : { turnId, text: delta },
     })),
 
   toolCalled: (payload) =>
@@ -158,7 +184,15 @@ export const useSessionStore = create<SessionStore>()((set) => ({
       streaming: null,
       trace: [
         ...state.trace,
-        { id: traceId(), turnId: payload.turnId, kind: 'tool_call', name: payload.name, label: describeTool(payload.name), data: payload.args, at: elapsed(state) },
+        {
+          id: traceId(),
+          turnId: payload.turnId,
+          kind: 'tool_call',
+          name: payload.name,
+          label: describeTool(payload.name),
+          data: payload.args,
+          at: elapsed(state),
+        },
       ],
     })),
 
@@ -166,7 +200,17 @@ export const useSessionStore = create<SessionStore>()((set) => ({
     set((state) => ({
       trace: [
         ...state.trace,
-        { id: traceId(), turnId: payload.turnId, kind: 'tool_result', name: payload.name, label: payload.summary, ok: payload.ok, durationMs: payload.durationMs, data: payload.data, at: elapsed(state) },
+        {
+          id: traceId(),
+          turnId: payload.turnId,
+          kind: 'tool_result',
+          name: payload.name,
+          label: payload.summary,
+          ok: payload.ok,
+          durationMs: payload.durationMs,
+          data: payload.data,
+          at: elapsed(state),
+        },
       ],
     })),
 
@@ -196,20 +240,39 @@ export const useSessionStore = create<SessionStore>()((set) => ({
 
   turnCompleted: (turnId, userMessage, assistantMessage) =>
     set((state) => ({
-      messages: [...state.messages.filter((m) => m.id !== `pending-user-${turnId}`), userMessage, assistantMessage],
+      messages: [
+        ...state.messages.filter((m) => m.id !== `pending-user-${turnId}`),
+        userMessage,
+        assistantMessage,
+      ],
       streaming: null,
       lastMetrics: assistantMessage.metrics,
-      trace: [...state.trace, { id: traceId(), turnId, kind: 'state', label: 'Answer ready', at: elapsed(state) }],
+      trace: [
+        ...state.trace,
+        { id: traceId(), turnId, kind: 'state', label: 'Answer ready', at: elapsed(state) },
+      ],
     })),
 
   turnFailed: (turnId, code, message) =>
     set((state) => ({
       error: code === 'CANCELLED' ? null : message,
       streaming: null,
-      messages: code === 'CANCELLED' ? state.messages : state.messages.filter((m) => m.id !== `pending-user-${turnId}`),
+      messages:
+        code === 'CANCELLED'
+          ? state.messages
+          : state.messages.filter((m) => m.id !== `pending-user-${turnId}`),
       phase: state.micActive ? 'listening' : 'idle',
       activeTurnId: null,
     })),
 
-  resetConversation: () => set((state) => ({ ...initialState, connection: state.connection, provider: state.provider, persona: state.persona, mode: state.mode, micActive: state.micActive, phase: state.micActive ? 'listening' : 'idle' })),
+  resetConversation: () =>
+    set((state) => ({
+      ...initialState,
+      connection: state.connection,
+      provider: state.provider,
+      persona: state.persona,
+      mode: state.mode,
+      micActive: state.micActive,
+      phase: state.micActive ? 'listening' : 'idle',
+    })),
 }));

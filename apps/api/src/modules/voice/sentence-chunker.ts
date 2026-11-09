@@ -1,4 +1,16 @@
-const ABBREVIATIONS = new Set(['e.g', 'i.e', 'mr', 'mrs', 'ms', 'dr', 'vs', 'etc', 'no', 'st', 'approx']);
+const ABBREVIATIONS = new Set([
+  'e.g',
+  'i.e',
+  'mr',
+  'mrs',
+  'ms',
+  'dr',
+  'vs',
+  'etc',
+  'no',
+  'st',
+  'approx',
+]);
 const TERMINATOR = /[.!?]["')\]]?(\s+|$)/u;
 
 export interface SentenceChunkerOptions {
@@ -58,10 +70,18 @@ export class SentenceChunker {
       const candidate = text.slice(0, end);
       const trimmed = candidate.trim();
       // Newline inside the match also counts as a boundary (lists, line breaks).
-      const word = trimmed.replace(/[.!?"')\]]+$/u, '').split(/\s+/u).pop()?.toLowerCase() ?? '';
-      const isAbbreviation = ABBREVIATIONS.has(word) || /^\d+$/u.test(word) && /\.\d/u.test(text.slice(end - 1, end + 2));
+      const word =
+        trimmed
+          .replace(/[.!?"')\]]+$/u, '')
+          .split(/\s+/u)
+          .pop()
+          ?.toLowerCase() ?? '';
+      const isAbbreviation =
+        ABBREVIATIONS.has(word) ||
+        (/^\d+$/u.test(word) && /\.\d/u.test(text.slice(end - 1, end + 2)));
       const atEndWithoutSpace = match[0].trim() === match[0] && end === text.length; // terminator at the very end, more may come ("3." → "3.5")
-      if (!isAbbreviation && !atEndWithoutSpace && trimmed.length >= this.options.minChars) return end;
+      if (!isAbbreviation && !atEndWithoutSpace && trimmed.length >= this.options.minChars)
+        return end;
       from = end;
     }
     return null;

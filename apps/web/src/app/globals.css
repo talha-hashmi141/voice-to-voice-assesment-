@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
@@ -149,19 +149,43 @@
 }
 
 @keyframes orb-pulse {
-  0% { transform: scale(1); opacity: 0.55; }
-  100% { transform: scale(1.9); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
 }
 @keyframes orb-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 @keyframes orb-bars {
-  0%, 100% { transform: scaleY(0.35); }
-  50% { transform: scaleY(1); }
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
-.orb-ring-pulse { animation: orb-pulse 1.8s ease-out infinite; }
-.orb-ring-spin { animation: orb-spin 1.1s linear infinite; }
-.orb-bar { transform-origin: center; animation: orb-bars 0.9s ease-in-out infinite; }
+.orb-ring-pulse {
+  animation: orb-pulse 1.8s ease-out infinite;
+}
+.orb-ring-spin {
+  animation: orb-spin 1.1s linear infinite;
+}
+.orb-bar {
+  transform-origin: center;
+  animation: orb-bars 0.9s ease-in-out infinite;
+}
 @media (prefers-reduced-motion: reduce) {
-  .orb-ring-pulse, .orb-ring-spin, .orb-bar { animation-duration: 0s; }
+  .orb-ring-pulse,
+  .orb-ring-spin,
+  .orb-bar {
+    animation-duration: 0s;
+  }
 }

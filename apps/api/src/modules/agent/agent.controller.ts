@@ -11,7 +11,10 @@ export class AgentController {
 
   @Post('turn')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Run one text turn through the agent (non-streaming). The voice gateway streams the same pipeline over Socket.IO.' })
+  @ApiOperation({
+    summary:
+      'Run one text turn through the agent (non-streaming). The voice gateway streams the same pipeline over Socket.IO.',
+  })
   @ApiOkResponse({ type: TurnResponseDto })
   @ZodSerializerDto(TurnResponseDto)
   turn(@Body() body: TurnRequestDto): Promise<TurnResponseDto> {

@@ -25,10 +25,12 @@ export const healthApi = {
 export const knowledgeApi = {
   listDocuments: () => api.get<DocumentListResponse>('/knowledge/documents'),
   getDocument: (id: string) => api.get<DocumentDetail>(`/knowledge/documents/${id}`),
-  search: (request: Partial<SearchRequest> & { query: string }) => api.post<SearchResponse>('/knowledge/search', request),
+  search: (request: Partial<SearchRequest> & { query: string }) =>
+    api.post<SearchResponse>('/knowledge/search', request),
   reindex: (force = false) => api.post<ReindexResponse>(`/knowledge/reindex?force=${force}`),
   listJobs: () => api.get<IngestionJobListResponse>('/knowledge/jobs'),
-  upload: (request: UploadDocumentRequest) => api.post<UploadDocumentResponse>('/knowledge/documents', request),
+  upload: (request: UploadDocumentRequest) =>
+    api.post<UploadDocumentResponse>('/knowledge/documents', request),
   deleteDocument: (slug: string) => api.delete<void>(`/knowledge/documents/${slug}`),
 };
 
@@ -43,6 +45,7 @@ export const agentApi = {
 };
 
 export const hrApi = {
-  leaveBalance: (employeeId: string) => api.get<LeaveBalance>(`/hr/employees/${employeeId}/leave-balance`),
+  leaveBalance: (employeeId: string) =>
+    api.get<LeaveBalance>(`/hr/employees/${employeeId}/leave-balance`),
   tickets: () => api.get<TicketListResponse>('/hr/tickets'),
 };

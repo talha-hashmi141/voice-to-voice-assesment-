@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { type SearchKnowledgeBaseArgs, SearchKnowledgeBaseArgsSchema } from '@voice-agent/contracts';
+import {
+  type SearchKnowledgeBaseArgs,
+  SearchKnowledgeBaseArgsSchema,
+} from '@voice-agent/contracts';
 import { AppConfigService, truncate } from '../../../common';
 import { RetrievalEvaluator, RetrievalService } from '../../knowledge';
 import { type Tool, type ToolContext, type ToolResult } from '../tool.port';
@@ -18,7 +21,10 @@ const GUIDANCE: Record<SearchKnowledgeBaseData['assessment'], string> = {
 };
 
 @Injectable()
-export class SearchKnowledgeBaseTool implements Tool<SearchKnowledgeBaseArgs, SearchKnowledgeBaseData> {
+export class SearchKnowledgeBaseTool implements Tool<
+  SearchKnowledgeBaseArgs,
+  SearchKnowledgeBaseData
+> {
   readonly name = 'search_knowledge_base' as const;
   readonly description =
     'Search the Orbital Labs knowledge base (employee handbook, HR, IT, finance and benefits policies). ' +
@@ -34,7 +40,10 @@ export class SearchKnowledgeBaseTool implements Tool<SearchKnowledgeBaseArgs, Se
     private readonly config: AppConfigService,
   ) {}
 
-  async execute(args: SearchKnowledgeBaseArgs, context: ToolContext): Promise<ToolResult<SearchKnowledgeBaseData>> {
+  async execute(
+    args: SearchKnowledgeBaseArgs,
+    context: ToolContext,
+  ): Promise<ToolResult<SearchKnowledgeBaseData>> {
     const topK = args.topK ?? this.config.agent.retrievalTopK;
     const outcome = await this.retrieval.search({
       queries: args.queries,
@@ -66,7 +75,12 @@ export class SearchKnowledgeBaseTool implements Tool<SearchKnowledgeBaseArgs, Se
 
     const documents = [...new Set(passages.map((p) => p.document))];
     return {
-      data: { assessment: evaluation.assessment, reason: evaluation.reason, passages, guidance: GUIDANCE[evaluation.assessment] },
+      data: {
+        assessment: evaluation.assessment,
+        reason: evaluation.reason,
+        passages,
+        guidance: GUIDANCE[evaluation.assessment],
+      },
       summary: passages.length
         ? `${passages.length} passages (${evaluation.assessment}) from ${documents.slice(0, 3).join(', ')}${documents.length > 3 ? '…' : ''}`
         : 'No passages found',

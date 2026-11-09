@@ -3,7 +3,13 @@ import { type TurnMetrics, type UserContext } from '@voice-agent/contracts';
 import { AppConfigService, Stopwatch } from '../../common';
 import { AgentRuntime, type AgentTurnResult } from '../agent';
 import { MessageRepository } from '../conversations';
-import { DOMAIN_VOCABULARY_PROMPT, STT_PROVIDER, type SttProvider, TTS_PROVIDER, type TtsProvider } from '../speech';
+import {
+  DOMAIN_VOCABULARY_PROMPT,
+  STT_PROVIDER,
+  type SttProvider,
+  TTS_PROVIDER,
+  type TtsProvider,
+} from '../speech';
 import { AsyncQueue } from './async-queue';
 import { SentenceChunker } from './sentence-chunker';
 import { SpeechScheduler } from './speech-scheduler';
@@ -45,7 +51,9 @@ export class VoiceTurnPipeline {
           queue.push({ type: 'cancelled' });
           return;
         }
-        this.logger.error(`Turn ${input.turnId} failed: ${error instanceof Error ? error.stack : String(error)}`);
+        this.logger.error(
+          `Turn ${input.turnId} failed: ${error instanceof Error ? error.stack : String(error)}`,
+        );
         queue.push({
           type: 'error',
           code: 'TURN_FAILED',
@@ -75,7 +83,12 @@ export class VoiceTurnPipeline {
     }
     queue.push({ type: 'transcript', text: userText, sttMs });
     if (!userText) {
-      queue.push({ type: 'error', code: 'EMPTY_TRANSCRIPT', message: "I didn't catch that. Could you say it again?", fatal: true });
+      queue.push({
+        type: 'error',
+        code: 'EMPTY_TRANSCRIPT',
+        message: "I didn't catch that. Could you say it again?",
+        fatal: true,
+      });
       return;
     }
 

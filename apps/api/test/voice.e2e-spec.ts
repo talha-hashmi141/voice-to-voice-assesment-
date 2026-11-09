@@ -32,17 +32,28 @@ describe('Voice gateway (e2e, Socket.IO)', () => {
   };
 
   const startSession = (client: Client, conversationId?: string): Promise<SessionReadyPayload> =>
-    new Promise((resolve) => client.emit(ClientEvents.SessionStart, { conversationId, userContext: DEFAULT_PERSONA }, resolve));
+    new Promise((resolve) =>
+      client.emit(
+        ClientEvents.SessionStart,
+        { conversationId, userContext: DEFAULT_PERSONA },
+        resolve,
+      ),
+    );
 
   /** Records every event of one turn until turn.completed (or a fatal error) arrives. */
-  const recordTurn = (client: Client, trigger: () => void): Promise<{ events: { event: string; payload: unknown }[]; completed: TurnCompletedPayload }> =>
+  const recordTurn = (
+    client: Client,
+    trigger: () => void,
+  ): Promise<{ events: { event: string; payload: unknown }[]; completed: TurnCompletedPayload }> =>
     new Promise((resolve, reject) => {
       const events: { event: string; payload: unknown }[] = [];
       const record = (event: string) => (payload: unknown) => events.push({ event, payload });
       const listeners = Object.values(ServerEvents).map((event) => [event, record(event)] as const);
-      for (const [event, handler] of listeners) client.on(event as keyof ServerToClientEvents, handler as never);
+      for (const [event, handler] of listeners)
+        client.on(event as keyof ServerToClientEvents, handler as never);
       const cleanup = () => {
-        for (const [event, handler] of listeners) client.off(event as keyof ServerToClientEvents, handler as never);
+        for (const [event, handler] of listeners)
+          client.off(event as keyof ServerToClientEvents, handler as never);
       };
       client.once(ServerEvents.TurnCompleted, (completed) => {
         cleanup();
@@ -83,18 +94,28 @@ describe('Voice gateway (e2e, Socket.IO)', () => {
     expect(names[0]).toBe(ServerEvents.TranscriptUser);
     expect(names).toContain(ServerEvents.AgentToolCall);
     expect(names).toContain(ServerEvents.AgentRetrievalEvaluated);
-    expect(names.filter((n) => n === ServerEvents.AgentToolResult).length).toBeGreaterThanOrEqual(3);
+    expect(names.filter((n) => n === ServerEvents.AgentToolResult).length).toBeGreaterThanOrEqual(
+      3,
+    );
 
-    const audio = events.filter((e) => e.event === ServerEvents.AgentAudio).map((e) => e.payload as { seq: number; mimeType: string; data: ArrayBuffer | Buffer });
+    const audio = events
+      .filter((e) => e.event === ServerEvents.AgentAudio)
+      .map((e) => e.payload as { seq: number; mimeType: string; data: ArrayBuffer | Buffer });
     expect(audio.length).toBeGreaterThan(0);
     expect(audio.map((a) => a.seq)).toEqual(audio.map((_, i) => i));
     expect(audio[0]?.mimeType).toBe('audio/wav');
-    expect(Buffer.from(audio[0]!.data as ArrayBuffer).subarray(0, 4).toString()).toBe('RIFF');
+    expect(
+      Buffer.from(audio[0]!.data as ArrayBuffer)
+        .subarray(0, 4)
+        .toString(),
+    ).toBe('RIFF');
 
     expect(completed.conversationId).toBe(ready.conversationId);
     expect(completed.assistantMessage.content).toMatch(/PTO days left/u);
     expect(completed.assistantMessage.metrics?.firstAudioMs).not.toBeNull();
-    const states = events.filter((e) => e.event === ServerEvents.TurnState).map((e) => (e.payload as { state: string }).state);
+    const states = events
+      .filter((e) => e.event === ServerEvents.TurnState)
+      .map((e) => (e.payload as { state: string }).state);
     expect(states).toEqual(expect.arrayContaining(['thinking', 'executing_tools', 'speaking']));
   });
 
@@ -102,15 +123,27 @@ describe('Voice gateway (e2e, Socket.IO)', () => {
     const client = await connect();
     const ready = await startSession(client);
     const { events, completed } = await recordTurn(client, () =>
-      client.emit(ClientEvents.AudioSubmit, { audio: Buffer.alloc(4_000), mimeType: 'audio/wav', sampleRate: 16_000 }),
+      client.emit(ClientEvents.AudioSubmit, {
+        audio: Buffer.alloc(4_000),
+        mimeType: 'audio/wav',
+        sampleRate: 16_000,
+      }),
     );
-    const transcript = events.find((e) => e.event === ServerEvents.TranscriptUser)?.payload as { text: string; sttMs: number };
+    const transcript = events.find((e) => e.event === ServerEvents.TranscriptUser)?.payload as {
+      text: string;
+      sttMs: number;
+    };
     expect(MOCK_UTTERANCES).toContain(transcript.text);
     expect(transcript.sttMs).toBeGreaterThanOrEqual(0);
     expect(completed.userMessage.content).toBe(transcript.text);
-    expect(events[0]).toMatchObject({ event: ServerEvents.TurnState, payload: expect.objectContaining({ state: 'transcribing' }) });
+    expect(events[0]).toMatchObject({
+      event: ServerEvents.TurnState,
+      payload: expect.objectContaining({ state: 'transcribing' }),
+    });
 
-    const next = await new Promise<SessionReadyPayload>((resolve) => client.emit(ClientEvents.ConversationReset, resolve));
+    const next = await new Promise<SessionReadyPayload>((resolve) =>
+      client.emit(ClientEvents.ConversationReset, resolve),
+    );
     expect(next.conversationId).not.toBe(ready.conversationId);
   });
 

@@ -29,7 +29,13 @@ export class ToolExecutor {
     return settled.map((outcome, index) =>
       outcome.status === 'fulfilled'
         ? outcome.value
-        : { call: calls[index]!, args: {}, ok: false, error: String(outcome.reason), durationMs: 0 },
+        : {
+            call: calls[index]!,
+            args: {},
+            ok: false,
+            error: String(outcome.reason),
+            durationMs: 0,
+          },
     );
   }
 
@@ -52,12 +58,23 @@ export class ToolExecutor {
     }
     const parsed = tool.schema.safeParse(rawArgs);
     if (!parsed.success) {
-      const issues = parsed.error.issues.map((issue) => `${issue.path.join('.') || 'args'}: ${issue.message}`).join('; ');
-      return finish({ args: rawArgs as Record<string, unknown>, ok: false, error: `Invalid arguments – ${issues}` });
+      const issues = parsed.error.issues
+        .map((issue) => `${issue.path.join('.') || 'args'}: ${issue.message}`)
+        .join('; ');
+      return finish({
+        args: rawArgs as Record<string, unknown>,
+        ok: false,
+        error: `Invalid arguments – ${issues}`,
+      });
     }
 
     try {
-      const result = await withTimeout(tool.execute(parsed.data, context), tool.timeoutMs, call.name, context.signal);
+      const result = await withTimeout(
+        tool.execute(parsed.data, context),
+        tool.timeoutMs,
+        call.name,
+        context.signal,
+      );
       return finish({ args: parsed.data as Record<string, unknown>, ok: true, result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

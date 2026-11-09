@@ -4,7 +4,14 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useConversations } from '@/features/conversations';
 import { conversationsApi } from '@/lib/api';
 import { ConversationTable } from './conversation-table';
@@ -28,16 +35,27 @@ export function ConversationsScreen() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title="Conversations" description="Every voice session with its transcript, cited sources and agent trace." />
+      <PageHeader
+        title="Conversations"
+        description="Every voice session with its transcript, cited sources and agent trace."
+      />
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
-        {conversations.error ? <p className="text-sm text-state-error">{conversations.error}</p> : null}
-        <ConversationTable conversations={conversations.data?.conversations ?? []} loading={conversations.loading} onDelete={setPendingDelete} />
+        {conversations.error ? (
+          <p className="text-sm text-state-error">{conversations.error}</p>
+        ) : null}
+        <ConversationTable
+          conversations={conversations.data?.conversations ?? []}
+          loading={conversations.loading}
+          onDelete={setPendingDelete}
+        />
       </div>
       <Dialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete this conversation?</DialogTitle>
-            <DialogDescription>The transcript and its traces will be removed permanently.</DialogDescription>
+            <DialogDescription>
+              The transcript and its traces will be removed permanently.
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDelete(null)}>

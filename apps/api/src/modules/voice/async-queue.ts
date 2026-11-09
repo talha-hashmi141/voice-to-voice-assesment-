@@ -5,7 +5,10 @@
  */
 export class AsyncQueue<T> implements AsyncIterable<T> {
   private readonly items: T[] = [];
-  private readonly waiters: { resolve: (result: IteratorResult<T>) => void; reject: (error: unknown) => void }[] = [];
+  private readonly waiters: {
+    resolve: (result: IteratorResult<T>) => void;
+    reject: (error: unknown) => void;
+  }[] = [];
   private closed = false;
   private failure: unknown = null;
 
@@ -19,7 +22,8 @@ export class AsyncQueue<T> implements AsyncIterable<T> {
   close(): void {
     if (this.closed) return;
     this.closed = true;
-    for (const waiter of this.waiters.splice(0)) waiter.resolve({ value: undefined as T, done: true });
+    for (const waiter of this.waiters.splice(0))
+      waiter.resolve({ value: undefined as T, done: true });
   }
 
   fail(error: unknown): void {
@@ -32,7 +36,8 @@ export class AsyncQueue<T> implements AsyncIterable<T> {
   [Symbol.asyncIterator](): AsyncIterator<T> {
     return {
       next: (): Promise<IteratorResult<T>> => {
-        if (this.items.length) return Promise.resolve({ value: this.items.shift() as T, done: false });
+        if (this.items.length)
+          return Promise.resolve({ value: this.items.shift() as T, done: false });
         if (this.closed) {
           if (this.failure) return Promise.reject(this.failure);
           return Promise.resolve({ value: undefined as T, done: true });

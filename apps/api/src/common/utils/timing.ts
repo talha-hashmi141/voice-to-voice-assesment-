@@ -36,7 +36,10 @@ export async function withTimeout<T>(
 ): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+      timeoutMs,
+    );
   });
   const aborted = new Promise<never>((_, reject) => {
     if (!signal) return;

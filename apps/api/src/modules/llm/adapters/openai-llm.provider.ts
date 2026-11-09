@@ -98,7 +98,10 @@ export class OpenAiLlmProvider implements LlmProvider {
       }
       if (choice?.finish_reason) finishReason = toFinishReason(choice.finish_reason);
       if (chunk.usage) {
-        usage = { promptTokens: chunk.usage.prompt_tokens, completionTokens: chunk.usage.completion_tokens };
+        usage = {
+          promptTokens: chunk.usage.prompt_tokens,
+          completionTokens: chunk.usage.completion_tokens,
+        };
       }
     }
 

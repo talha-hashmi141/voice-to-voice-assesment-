@@ -1,7 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type SupportTicket, type TicketPriority } from '@voice-agent/contracts';
 import { desc, eq } from 'drizzle-orm';
-import { DATABASE, type Database, shortReference, supportTickets, type SupportTicketRow, toIso } from '../../common';
+import {
+  DATABASE,
+  type Database,
+  shortReference,
+  supportTickets,
+  type SupportTicketRow,
+  toIso,
+} from '../../common';
 
 export interface CreateTicketInput {
   conversationId: string | null;
@@ -24,12 +31,20 @@ export class TicketRepository {
   }
 
   async findRecent(limit = 50): Promise<SupportTicket[]> {
-    const rows = await this.db.select().from(supportTickets).orderBy(desc(supportTickets.createdAt)).limit(limit);
+    const rows = await this.db
+      .select()
+      .from(supportTickets)
+      .orderBy(desc(supportTickets.createdAt))
+      .limit(limit);
     return rows.map(toTicket);
   }
 
   async findByReference(reference: string): Promise<SupportTicket | null> {
-    const [row] = await this.db.select().from(supportTickets).where(eq(supportTickets.reference, reference)).limit(1);
+    const [row] = await this.db
+      .select()
+      .from(supportTickets)
+      .where(eq(supportTickets.reference, reference))
+      .limit(1);
     return row ? toTicket(row) : null;
   }
 }

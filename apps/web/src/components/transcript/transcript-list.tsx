@@ -3,7 +3,13 @@
 import type { Message, Source } from '@voice-agent/contracts';
 import { MicIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { MessageBubble } from './message-bubble';
 
 export interface TranscriptListProps {
@@ -13,7 +19,12 @@ export interface TranscriptListProps {
   emptyHint?: string;
 }
 
-export function TranscriptList({ messages, streamingText, onCite, emptyHint }: TranscriptListProps) {
+export function TranscriptList({
+  messages,
+  streamingText,
+  onCite,
+  emptyHint,
+}: TranscriptListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
@@ -37,11 +48,22 @@ export function TranscriptList({ messages, streamingText, onCite, emptyHint }: T
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-4 md:px-6" role="log" aria-live="polite" aria-label="Conversation transcript">
+    <div
+      className="flex flex-col gap-4 px-4 py-4 md:px-6"
+      role="log"
+      aria-live="polite"
+      aria-label="Conversation transcript"
+    >
       {messages.map((message) => (
         <MessageBubble key={message.id} message={message} onCite={onCite} />
       ))}
-      {streamingText ? <MessageBubble message={{ role: 'assistant', content: streamingText, sources: [] }} streaming onCite={onCite} /> : null}
+      {streamingText ? (
+        <MessageBubble
+          message={{ role: 'assistant', content: streamingText, sources: [] }}
+          streaming
+          onCite={onCite}
+        />
+      ) : null}
       <div ref={endRef} />
     </div>
   );

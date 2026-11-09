@@ -43,14 +43,16 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}) {
         toast.error('Not connected to the voice service');
         return;
       }
-      if (current.mode === 'handsfree' && current.phase !== 'idle' && current.phase !== 'listening') interrupt();
+      if (current.mode === 'handsfree' && current.phase !== 'idle' && current.phase !== 'listening')
+        interrupt();
       clientRef.current?.sendAudio(wav, { mimeType: 'audio/wav', sampleRate: 16_000, durationMs });
       current.turnStarted(`pending-${Date.now()}`);
       current.setPhase('transcribing');
     },
     onSpeechStart: () => {
       // Barge-in: real speech while the agent is talking cancels the current turn.
-      if (latestStore.current.mode === 'handsfree' && latestStore.current.phase === 'speaking') interrupt();
+      if (latestStore.current.mode === 'handsfree' && latestStore.current.phase === 'speaking')
+        interrupt();
     },
     onLevel: (level) => useSessionStore.getState().setMicLevel(level),
     onError: (message) => toast.error(message),
@@ -93,10 +95,17 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}) {
       onToolResult: (payload) => actions.toolResult(payload),
       onRetrievalEvaluated: (payload) => actions.retrievalEvaluated(payload),
       onAudio: ({ seq, data, mimeType }) => {
-        const bytes = data instanceof ArrayBuffer ? data : (data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer);
+        const bytes =
+          data instanceof ArrayBuffer
+            ? data
+            : (data.buffer.slice(
+                data.byteOffset,
+                data.byteOffset + data.byteLength,
+              ) as ArrayBuffer);
         queue.enqueue(seq, bytes, mimeType);
       },
-      onTurnCompleted: ({ turnId, userMessage, assistantMessage }) => actions.turnCompleted(turnId, userMessage, assistantMessage),
+      onTurnCompleted: ({ turnId, userMessage, assistantMessage }) =>
+        actions.turnCompleted(turnId, userMessage, assistantMessage),
       onTurnError: ({ turnId, code, message }) => {
         if (code === 'CANCELLED') queue.stop();
         else toast.error(message);
@@ -104,9 +113,15 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}) {
       },
     });
     clientRef.current = client;
-    client.connect(useSessionStore.getState().persona, conversationId);
+    // Deferred by a tick so React StrictMode's immediate effect cleanup cancels the connect instead of
+    // tearing down a half-open socket.
+    const timer = setTimeout(
+      () => client.connect(useSessionStore.getState().persona, conversationId),
+      0,
+    );
 
     return () => {
+      clearTimeout(timer);
       client.disconnect();
       queue.stop();
       clientRef.current = null;

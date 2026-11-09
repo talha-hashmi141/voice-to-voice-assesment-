@@ -1,7 +1,13 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { DocumentChunker } from './chunking';
-import { DocumentLoader, INGESTION_QUEUE, IngestionProcessor, IngestionQueueService, IngestionService } from './ingestion';
+import {
+  DocumentLoader,
+  INGESTION_QUEUE,
+  IngestionProcessor,
+  IngestionQueueService,
+  IngestionService,
+} from './ingestion';
 import { KnowledgeController } from './knowledge.controller';
 import { ChunkRepository, DocumentRepository } from './repositories';
 import { NoopReranker, RERANKER, RetrievalEvaluator, RetrievalService } from './retrieval';
@@ -21,6 +27,12 @@ import { NoopReranker, RERANKER, RetrievalEvaluator, RetrievalService } from './
     RetrievalEvaluator,
     { provide: RERANKER, useClass: NoopReranker },
   ],
-  exports: [RetrievalService, RetrievalEvaluator, IngestionService, DocumentRepository, ChunkRepository],
+  exports: [
+    RetrievalService,
+    RetrievalEvaluator,
+    IngestionService,
+    DocumentRepository,
+    ChunkRepository,
+  ],
 })
 export class KnowledgeModule {}

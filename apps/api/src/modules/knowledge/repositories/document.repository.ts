@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { DATABASE, type Database, chunks, documents, type DocumentRow } from '../../../common';
+import { DATABASE, type Database, documents, type DocumentRow } from '../../../common';
 import { type DocumentInput } from '../entities';
 
 export interface DocumentWithStats extends DocumentRow {
@@ -44,7 +44,10 @@ export class DocumentRepository {
   }
 
   /** Inserts or updates by slug; returns the row and whether the content checksum changed. */
-  async upsert(input: DocumentInput, checksum: string): Promise<{ row: DocumentRow; changed: boolean }> {
+  async upsert(
+    input: DocumentInput,
+    checksum: string,
+  ): Promise<{ row: DocumentRow; changed: boolean }> {
     const existing = await this.findBySlug(input.slug);
     if (existing && existing.checksum === checksum) {
       return { row: existing, changed: false };
@@ -88,7 +91,10 @@ export class DocumentRepository {
   }
 
   async deleteBySlug(slug: string): Promise<boolean> {
-    const deleted = await this.db.delete(documents).where(eq(documents.slug, slug)).returning({ id: documents.id });
+    const deleted = await this.db
+      .delete(documents)
+      .where(eq(documents.slug, slug))
+      .returning({ id: documents.id });
     return deleted.length > 0;
   }
 

@@ -1,4 +1,10 @@
-import { type AgentStep, type Conversation, type Message, type Source, type TurnMetrics } from '@voice-agent/contracts';
+import {
+  type AgentStep,
+  type Conversation,
+  type Message,
+  type Source,
+  type TurnMetrics,
+} from '@voice-agent/contracts';
 import { type ConversationRow, type MessageRow, toIso } from '../../common';
 
 export const toMessage = (row: MessageRow): Message => ({

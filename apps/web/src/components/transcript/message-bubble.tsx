@@ -14,7 +14,10 @@ export interface MessageBubbleProps {
 export function MessageBubble({ message, streaming, onCite }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   return (
-    <div className={cn('flex gap-3', isUser ? 'flex-row-reverse' : 'flex-row')} data-role={message.role}>
+    <div
+      className={cn('flex gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}
+      data-role={message.role}
+    >
       <div
         className={cn(
           'mt-1 flex size-7 shrink-0 items-center justify-center rounded-full',
@@ -27,7 +30,9 @@ export function MessageBubble({ message, streaming, onCite }: MessageBubbleProps
       <div
         className={cn(
           'max-w-[min(80%,42rem)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
-          isUser ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-card text-card-foreground ring-1 ring-border',
+          isUser
+            ? 'rounded-tr-sm bg-primary text-primary-foreground'
+            : 'rounded-tl-sm bg-card text-card-foreground ring-1 ring-border',
         )}
       >
         {isUser ? (
@@ -35,7 +40,9 @@ export function MessageBubble({ message, streaming, onCite }: MessageBubbleProps
         ) : (
           <p className="whitespace-pre-wrap">
             <CitationText text={message.content} sources={message.sources ?? []} onCite={onCite} />
-            {streaming ? <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-foreground/60 align-text-bottom" /> : null}
+            {streaming ? (
+              <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-foreground/60 align-text-bottom" />
+            ) : null}
           </p>
         )}
         {!isUser && message.sources?.length ? (

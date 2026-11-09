@@ -23,7 +23,8 @@ const EXTENSIONS: Record<string, string> = {
   'audio/flac': 'flac',
 };
 
-export const extensionFor = (mimeType: string): string => EXTENSIONS[mimeType.split(';')[0]!.trim().toLowerCase()] ?? 'wav';
+export const extensionFor = (mimeType: string): string =>
+  EXTENSIONS[mimeType.split(';')[0]!.trim().toLowerCase()] ?? 'wav';
 
 export class OpenAiSttProvider implements SttProvider {
   readonly model: string;
@@ -36,7 +37,9 @@ export class OpenAiSttProvider implements SttProvider {
   }
 
   async transcribe(input: TranscribeInput): Promise<Transcript> {
-    const file = await toFile(input.audio, `utterance.${extensionFor(input.mimeType)}`, { type: input.mimeType });
+    const file = await toFile(input.audio, `utterance.${extensionFor(input.mimeType)}`, {
+      type: input.mimeType,
+    });
     const response = await this.client.audio.transcriptions.create(
       {
         file,
@@ -72,7 +75,9 @@ export class OpenAiTtsProvider implements TtsProvider {
         voice: (input.voice ?? this.defaultVoice) as 'alloy',
         input: input.text,
         response_format: 'mp3',
-        ...(input.instructions && INSTRUCTABLE_TTS.test(modelName) ? { instructions: input.instructions } : {}),
+        ...(input.instructions && INSTRUCTABLE_TTS.test(modelName)
+          ? { instructions: input.instructions }
+          : {}),
       },
       { signal: input.signal },
     );

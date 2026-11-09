@@ -25,7 +25,8 @@ function stem(token: string): string {
     if (token.endsWith(suffix) && token.length - suffix.length >= 3) {
       let base = token.slice(0, -suffix.length);
       // "submitt" → "submit", "runn" → "run"
-      if ((suffix === 'ed' || suffix === 'ing') && /([b-df-hj-np-tv-z])\1$/u.test(base)) base = base.slice(0, -1);
+      if ((suffix === 'ed' || suffix === 'ing') && /([b-df-hj-np-tv-z])\1$/u.test(base))
+        base = base.slice(0, -1);
       return base;
     }
   }

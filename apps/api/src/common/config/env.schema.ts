@@ -10,7 +10,10 @@ export const EnvSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
-  DATABASE_URL: z.string().min(1).default('postgres://postgres:postgres@localhost:5434/voice_agent'),
+  DATABASE_URL: z
+    .string()
+    .min(1)
+    .default('postgres://postgres:postgres@localhost:5434/voice_agent'),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
   DB_MIGRATE_ON_START: BooleanString.default(true),
 

@@ -40,10 +40,18 @@ const MAX_TRACE_PAYLOAD = 4_000;
 function toTracePayload(name: string, data: unknown): Record<string, unknown> | undefined {
   if (!data || typeof data !== 'object') return undefined;
   if (name === 'search_knowledge_base') {
-    const search = data as { assessment?: string; passages?: { ref: number; document: string; section: string; score: number }[] };
+    const search = data as {
+      assessment?: string;
+      passages?: { ref: number; document: string; section: string; score: number }[];
+    };
     return {
       assessment: search.assessment,
-      passages: (search.passages ?? []).map(({ ref, document, section, score }) => ({ ref, document, section, score })),
+      passages: (search.passages ?? []).map(({ ref, document, section, score }) => ({
+        ref,
+        document,
+        section,
+        score,
+      })),
     };
   }
   const serialised = JSON.stringify(data);
@@ -53,7 +61,8 @@ function toTracePayload(name: string, data: unknown): Record<string, unknown> | 
 const toBuffer = (audio: unknown): Buffer | null => {
   if (Buffer.isBuffer(audio)) return audio;
   if (audio instanceof ArrayBuffer) return Buffer.from(audio);
-  if (ArrayBuffer.isView(audio)) return Buffer.from(audio.buffer, audio.byteOffset, audio.byteLength);
+  if (ArrayBuffer.isView(audio))
+    return Buffer.from(audio.buffer, audio.byteOffset, audio.byteLength);
   return null;
 };
 
@@ -90,15 +99,29 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(ClientEvents.SessionStart)
-  async onSessionStart(@ConnectedSocket() client: VoiceSocket, @MessageBody() payload: unknown): Promise<SessionReadyPayload | undefined> {
+  async onSessionStart(
+    @ConnectedSocket() client: VoiceSocket,
+    @MessageBody() payload: unknown,
+  ): Promise<SessionReadyPayload | undefined> {
     const parsed = SessionStartSchema.safeParse(payload);
     if (!parsed.success) {
-      this.emitError(client, null, 'INVALID_PAYLOAD', parsed.error.issues.map((i) => i.message).join('; '));
+      this.emitError(
+        client,
+        null,
+        'INVALID_PAYLOAD',
+        parsed.error.issues.map((i) => i.message).join('; '),
+      );
       return undefined;
     }
     this.abortActive(client.id);
-    const conversation = await this.conversations.ensure(parsed.data.conversationId, parsed.data.userContext);
-    this.sessions.set(client.id, { conversationId: conversation.id, userContext: conversation.userContext });
+    const conversation = await this.conversations.ensure(
+      parsed.data.conversationId,
+      parsed.data.userContext,
+    );
+    this.sessions.set(client.id, {
+      conversationId: conversation.id,
+      userContext: conversation.userContext,
+    });
     const ready: SessionReadyPayload = {
       conversationId: conversation.id,
       userContext: conversation.userContext,
@@ -109,7 +132,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(ClientEvents.ConversationReset)
-  async onConversationReset(@ConnectedSocket() client: VoiceSocket): Promise<SessionReadyPayload | undefined> {
+  async onConversationReset(
+    @ConnectedSocket() client: VoiceSocket,
+  ): Promise<SessionReadyPayload | undefined> {
     const session = this.sessions.get(client.id);
     if (!session) {
       this.emitError(client, null, 'NO_SESSION', 'Start a session first');
@@ -154,7 +179,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.abortActive(client.id);
   }
 
-  private async startTurn(client: VoiceSocket, input: Pick<VoiceTurnInput, 'audio' | 'text'>): Promise<void> {
+  private async startTurn(
+    client: VoiceSocket,
+    input: Pick<VoiceTurnInput, 'audio' | 'text'>,
+  ): Promise<void> {
     const session = this.sessions.get(client.id);
     if (!session) {
       this.emitError(client, null, 'NO_SESSION', 'Start a session first');
@@ -177,15 +205,27 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.relay(client, turnId, session.conversationId, event);
       }
     } catch (error) {
-      this.logger.error(`turn ${turnId} crashed: ${error instanceof Error ? error.stack : String(error)}`);
-      this.emitError(client, turnId, 'TURN_FAILED', 'Something went wrong while handling your request');
+      this.logger.error(
+        `turn ${turnId} crashed: ${error instanceof Error ? error.stack : String(error)}`,
+      );
+      this.emitError(
+        client,
+        turnId,
+        'TURN_FAILED',
+        'Something went wrong while handling your request',
+      );
     } finally {
       if (session.active?.turnId === turnId) session.active = undefined;
       client.emit(ServerEvents.TurnState, { turnId, state: 'idle' });
     }
   }
 
-  private relay(client: VoiceSocket, turnId: string, conversationId: string, event: VoiceEvent): void {
+  private relay(
+    client: VoiceSocket,
+    turnId: string,
+    conversationId: string,
+    event: VoiceEvent,
+  ): void {
     switch (event.type) {
       case 'state':
         client.emit(ServerEvents.TurnState, { turnId, state: event.state });
@@ -197,7 +237,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit(ServerEvents.AgentTextDelta, { turnId, delta: event.delta });
         break;
       case 'tool_call':
-        client.emit(ServerEvents.AgentToolCall, { turnId, callId: event.callId, name: event.name, args: event.args });
+        client.emit(ServerEvents.AgentToolCall, {
+          turnId,
+          callId: event.callId,
+          name: event.name,
+          args: event.args,
+        });
         break;
       case 'tool_result':
         client.emit(ServerEvents.AgentToolResult, {
@@ -221,7 +266,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
         break;
       case 'audio':
-        client.emit(ServerEvents.AgentAudio, { turnId, seq: event.seq, mimeType: event.mimeType, data: event.data, text: event.text });
+        client.emit(ServerEvents.AgentAudio, {
+          turnId,
+          seq: event.seq,
+          mimeType: event.mimeType,
+          data: event.data,
+          text: event.text,
+        });
         break;
       case 'completed':
         client.emit(ServerEvents.TurnCompleted, {
@@ -234,7 +285,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
         break;
       case 'cancelled':
-        client.emit(ServerEvents.TurnError, { turnId, code: 'CANCELLED', message: 'Turn cancelled' });
+        client.emit(ServerEvents.TurnError, {
+          turnId,
+          code: 'CANCELLED',
+          message: 'Turn cancelled',
+        });
         break;
       case 'error':
         this.emitError(client, turnId, event.code, event.message);
@@ -242,7 +297,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private emitError(client: VoiceSocket, turnId: string | null, code: string, message: string): void {
+  private emitError(
+    client: VoiceSocket,
+    turnId: string | null,
+    code: string,
+    message: string,
+  ): void {
     client.emit(ServerEvents.TurnError, { turnId, code, message });
   }
 

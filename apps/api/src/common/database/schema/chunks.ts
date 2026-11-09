@@ -22,7 +22,10 @@ export const chunks = pgTable(
     tsv: tsvector('tsv').generatedAlwaysAs(
       sql`to_tsvector('english', coalesce(section_path, '') || ' ' || content)`,
     ),
-    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    metadata: jsonb('metadata')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

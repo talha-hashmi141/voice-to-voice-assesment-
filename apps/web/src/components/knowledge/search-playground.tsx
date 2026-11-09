@@ -3,7 +3,7 @@
 import type { RetrievalMode, SearchResponse } from '@voice-agent/contracts';
 import { SearchIcon } from 'lucide-react';
 import { useState } from 'react';
-import { ScoreBar } from '@/components/common';
+import { PassageMarkdown, ScoreBar } from '@/components/common';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,13 @@ export interface SearchPlaygroundProps {
 }
 
 /** Semantic search playground: ranked passages with fused and per-channel scores. */
-export function SearchPlayground({ result, loading, error, onSearch, onOpenDocument }: SearchPlaygroundProps) {
+export function SearchPlayground({
+  result,
+  loading,
+  error,
+  onSearch,
+  onOpenDocument,
+}: SearchPlaygroundProps) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<RetrievalMode>('hybrid');
 
@@ -52,24 +58,49 @@ export function SearchPlayground({ result, loading, error, onSearch, onOpenDocum
         className="flex flex-col gap-2"
       >
         <div className="flex gap-2">
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ask in your own words…" aria-label="Search query" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Ask in your own words…"
+            aria-label="Search query"
+          />
           <Button type="submit" disabled={loading || !query.trim()}>
             {loading ? <Spinner className="size-4" /> : <SearchIcon className="size-4" />}
             Search
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <div className="flex rounded-lg border p-0.5" role="radiogroup" aria-label="Retrieval mode">
+          <div
+            className="flex rounded-lg border p-0.5"
+            role="radiogroup"
+            aria-label="Retrieval mode"
+          >
             {MODES.map((m) => (
-              <Button key={m.value} type="button" size="xs" variant={mode === m.value ? 'secondary' : 'ghost'} role="radio" aria-checked={mode === m.value} title={m.hint} onClick={() => run(query, m.value)}>
+              <Button
+                key={m.value}
+                type="button"
+                size="xs"
+                variant={mode === m.value ? 'secondary' : 'ghost'}
+                role="radio"
+                aria-checked={mode === m.value}
+                title={m.hint}
+                onClick={() => run(query, m.value)}
+              >
                 {m.label}
               </Button>
             ))}
           </div>
           <span className="text-xs text-muted-foreground">Try:</span>
           {SAMPLE_QUERIES.map((sample) => (
-            <Button key={sample} type="button" size="xs" variant="outline" className="max-w-64 truncate font-normal" onClick={() => run(sample, mode)}>
-              {sample}
+            <Button
+              key={sample}
+              type="button"
+              size="xs"
+              variant="outline"
+              className="max-w-72 justify-start font-normal"
+              onClick={() => run(sample, mode)}
+            >
+              <span className="truncate">{sample}</span>
             </Button>
           ))}
         </div>
@@ -88,12 +119,16 @@ export function SearchPlayground({ result, loading, error, onSearch, onOpenDocum
                 <Badge variant="secondary" className="font-mono">
                   #{hit.rank}
                 </Badge>
-                <button type="button" onClick={() => onOpenDocument(hit.documentId)} className="font-medium hover:underline">
+                <button
+                  type="button"
+                  onClick={() => onOpenDocument(hit.documentId)}
+                  className="font-medium hover:underline"
+                >
                   {hit.documentTitle}
                 </button>
                 <span className="text-xs text-muted-foreground">› {hit.sectionPath}</span>
               </header>
-              <p className="mb-3 line-clamp-4 whitespace-pre-wrap text-foreground/90">{hit.content}</p>
+              <PassageMarkdown content={hit.content} className="mb-3 max-h-40 overflow-hidden" />
               <div className="grid gap-1 sm:grid-cols-3 sm:gap-3">
                 <ScoreBar label="fused" value={hit.scores.fused} />
                 <ScoreBar label="dense" value={hit.scores.dense} />
@@ -101,7 +136,9 @@ export function SearchPlayground({ result, loading, error, onSearch, onOpenDocum
               </div>
             </article>
           ))}
-          {!result.hits.length ? <p className="text-sm text-muted-foreground">No passages matched.</p> : null}
+          {!result.hits.length ? (
+            <p className="text-sm text-muted-foreground">No passages matched.</p>
+          ) : null}
         </div>
       ) : null}
     </div>

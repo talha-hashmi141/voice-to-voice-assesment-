@@ -4,8 +4,16 @@ describe('DocumentLoader', () => {
   const loader = new DocumentLoader();
 
   it('parses front-matter and falls back to a title derived from the slug', () => {
-    const parsed = loader.parse('---\ntitle: PTO Policy\ncategory: hr\ntags: [pto, leave]\nsummary: s\n---\n# Body\n', 'pto-policy');
-    expect(parsed).toMatchObject({ slug: 'pto-policy', title: 'PTO Policy', category: 'hr', tags: ['pto', 'leave'] });
+    const parsed = loader.parse(
+      '---\ntitle: PTO Policy\ncategory: hr\ntags: [pto, leave]\nsummary: s\n---\n# Body\n',
+      'pto-policy',
+    );
+    expect(parsed).toMatchObject({
+      slug: 'pto-policy',
+      title: 'PTO Policy',
+      category: 'hr',
+      tags: ['pto', 'leave'],
+    });
     expect(parsed.content).toBe('# Body');
     expect(parsed.metadata).toEqual({ summary: 's' });
 

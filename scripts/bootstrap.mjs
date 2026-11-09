@@ -12,7 +12,15 @@
  */
 import { copyFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { composeUp, ensureDockerDaemon, envFileExists, log, ROOT, run, runOrExit } from './_shared.mjs';
+import {
+  composeUp,
+  ensureDockerDaemon,
+  envFileExists,
+  log,
+  ROOT,
+  run,
+  runOrExit,
+} from './_shared.mjs';
 
 const [major] = process.versions.node.split('.').map(Number);
 if (major < 22) {
@@ -25,7 +33,9 @@ if (envFileExists()) {
   log.ok('.env already exists (left untouched)');
 } else {
   copyFileSync(resolve(ROOT, '.env.example'), resolve(ROOT, '.env'));
-  log.ok('Created .env from .env.example — add OPENAI_API_KEY to use real models (mock mode works without it)');
+  log.ok(
+    'Created .env from .env.example — add OPENAI_API_KEY to use real models (mock mode works without it)',
+  );
 }
 
 log.step('Installing dependencies');
@@ -57,7 +67,20 @@ await runOrExit('pnpm', ['--filter', '@voice-agent/web', 'copy-assets']);
 
 log.step('Done');
 log.info('Start everything with:  pnpm dev');
-log.info('Web:  http://localhost:3000     API: http://localhost:4000/api     Docs: http://localhost:4000/api/docs');
-if ((await run('node', ['-e', "process.exit(require('fs').readFileSync('.env','utf8').match(/^OPENAI_API_KEY=.+$/m)?0:1)"], { quiet: true })) !== 0) {
-  log.warn('No OPENAI_API_KEY set: running in deterministic mock mode. Add the key to .env, then run `pnpm db:seed` to re-embed with real embeddings.');
+log.info(
+  'Web:  http://localhost:3000     API: http://localhost:4000/api     Docs: http://localhost:4000/api/docs',
+);
+if (
+  (await run(
+    'node',
+    [
+      '-e',
+      "process.exit(require('fs').readFileSync('.env','utf8').match(/^OPENAI_API_KEY=.+$/m)?0:1)",
+    ],
+    { quiet: true },
+  )) !== 0
+) {
+  log.warn(
+    'No OPENAI_API_KEY set: running in deterministic mock mode. Add the key to .env, then run `pnpm db:seed` to re-embed with real embeddings.',
+  );
 }

@@ -32,7 +32,10 @@ export class ChunkRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   /** Atomically replaces a document's chunks (delete + insert in one transaction). */
-  async replaceForDocument(documentId: string, rows: Omit<NewChunkRow, 'documentId'>[]): Promise<void> {
+  async replaceForDocument(
+    documentId: string,
+    rows: Omit<NewChunkRow, 'documentId'>[],
+  ): Promise<void> {
     await this.db.transaction(async (tx) => {
       await tx.delete(chunks).where(eq(chunks.documentId, documentId));
       if (rows.length) {
@@ -89,7 +92,12 @@ export class ChunkRepository {
   }
 
   /** Adjacent chunks of the same section, used for small-to-big context expansion. */
-  async findNeighbours(documentId: string, sectionPath: string, ordinal: number, radius = 1): Promise<RetrievedChunk[]> {
+  async findNeighbours(
+    documentId: string,
+    sectionPath: string,
+    ordinal: number,
+    radius = 1,
+  ): Promise<RetrievedChunk[]> {
     return this.db
       .select(joinedColumns)
       .from(chunks)

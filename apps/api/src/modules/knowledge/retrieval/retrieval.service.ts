@@ -42,7 +42,9 @@ export class RetrievalService {
   async search(options: SearchOptions): Promise<SearchOutcome> {
     const started = performance.now();
     const mode = options.mode ?? 'hybrid';
-    const queries = Array.from(new Set(options.queries.map(normaliseWhitespace).filter(Boolean))).slice(0, 3);
+    const queries = Array.from(
+      new Set(options.queries.map(normaliseWhitespace).filter(Boolean)),
+    ).slice(0, 3);
     if (!queries.length) return { hits: [], tookMs: 0, queries, channels: { dense: 0, sparse: 0 } };
 
     const limit = options.candidateLimit ?? Math.max(20, options.topK * 4);
@@ -51,13 +53,17 @@ export class RetrievalService {
 
     const vectors = useDense ? await this.embeddings.embed(queries, options.signal) : [];
     const registry = new Map<string, RetrievedChunk>();
-    const remember = (rows: RetrievedChunk[]) => rows.forEach((row) => registry.set(row.chunkId, row));
+    const remember = (rows: RetrievedChunk[]) =>
+      rows.forEach((row) => registry.set(row.chunkId, row));
 
     const denseLists = useDense
       ? queries.map(async (_, i): Promise<RankedList> => {
           const rows = await this.chunks.searchDense(vectors[i]!, limit);
           remember(rows);
-          return { channel: 'dense', items: rows.map((row) => ({ id: row.chunkId, score: row.similarity })) };
+          return {
+            channel: 'dense',
+            items: rows.map((row) => ({ id: row.chunkId, score: row.similarity })),
+          };
         })
       : [];
     const sparseLists = useSparse
@@ -65,7 +71,10 @@ export class RetrievalService {
           const rows = await this.chunks.searchSparse(query, limit);
           remember(rows);
           const max = rows[0]?.rank || 1;
-          return { channel: 'sparse', items: rows.map((row) => ({ id: row.chunkId, score: row.rank / max })) };
+          return {
+            channel: 'sparse',
+            items: rows.map((row) => ({ id: row.chunkId, score: row.rank / max })),
+          };
         })
       : [];
 
@@ -101,7 +110,9 @@ export class RetrievalService {
     }
 
     const tookMs = Math.round(performance.now() - started);
-    this.logger.debug(`search ${JSON.stringify(queries)} mode=${mode} → ${hits.length} hits in ${tookMs}ms`);
+    this.logger.debug(
+      `search ${JSON.stringify(queries)} mode=${mode} → ${hits.length} hits in ${tookMs}ms`,
+    );
     return {
       hits,
       tookMs,

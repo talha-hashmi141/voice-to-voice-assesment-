@@ -3,7 +3,12 @@ import type OpenAI from 'openai';
 import { AppConfigService } from '../../common';
 import { OPENAI_CLIENT } from '../openai';
 import { MockSttProvider, MockTtsProvider, OpenAiSttProvider, OpenAiTtsProvider } from './adapters';
-import { STT_PROVIDER, type SttProvider, TTS_PROVIDER, type TtsProvider } from './speech-provider.ports';
+import {
+  STT_PROVIDER,
+  type SttProvider,
+  TTS_PROVIDER,
+  type TtsProvider,
+} from './speech-provider.ports';
 
 @Global()
 @Module({
@@ -12,7 +17,9 @@ import { STT_PROVIDER, type SttProvider, TTS_PROVIDER, type TtsProvider } from '
       provide: STT_PROVIDER,
       inject: [AppConfigService, OPENAI_CLIENT],
       useFactory: (config: AppConfigService, client: OpenAI | null): SttProvider =>
-        config.aiProvider === 'openai' && client ? new OpenAiSttProvider(client, config.openai.sttModel) : new MockSttProvider(),
+        config.aiProvider === 'openai' && client
+          ? new OpenAiSttProvider(client, config.openai.sttModel)
+          : new MockSttProvider(),
     },
     {
       provide: TTS_PROVIDER,

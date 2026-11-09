@@ -26,12 +26,17 @@ export class MemoryService {
     private readonly conversations: ConversationRepository,
   ) {}
 
-  async buildHistory(conversationId: string, budgetTokens = DEFAULT_HISTORY_TOKEN_BUDGET): Promise<ConversationMemory> {
+  async buildHistory(
+    conversationId: string,
+    budgetTokens = DEFAULT_HISTORY_TOKEN_BUDGET,
+  ): Promise<ConversationMemory> {
     const [rows, conversation] = await Promise.all([
       this.messages.listByConversation(conversationId),
       this.conversations.findById(conversationId),
     ]);
-    const transcript = rows.filter((row) => (row.role === 'user' || row.role === 'assistant') && row.content.trim());
+    const transcript = rows.filter(
+      (row) => (row.role === 'user' || row.role === 'assistant') && row.content.trim(),
+    );
 
     const kept: LlmMessage[] = [];
     let used = 0;
@@ -42,6 +47,10 @@ export class MemoryService {
       used += cost;
       kept.unshift({ role: row.role as 'user' | 'assistant', content: row.content });
     }
-    return { history: kept, summary: conversation?.summary ?? null, dropped: transcript.length - kept.length };
+    return {
+      history: kept,
+      summary: conversation?.summary ?? null,
+      dropped: transcript.length - kept.length,
+    };
   }
 }

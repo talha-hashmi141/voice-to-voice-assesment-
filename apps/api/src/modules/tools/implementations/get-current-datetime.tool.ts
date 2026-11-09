@@ -36,9 +36,13 @@ export class GetCurrentDateTimeTool implements Tool<GetCurrentDateTimeArgs, Curr
 
   constructor(@Inject(CLOCK) private readonly clock: Clock) {}
 
-  async execute(args: GetCurrentDateTimeArgs, context: ToolContext): Promise<ToolResult<CurrentDateTimeData>> {
+  async execute(
+    args: GetCurrentDateTimeArgs,
+    context: ToolContext,
+  ): Promise<ToolResult<CurrentDateTimeData>> {
     const requested = args.timezone?.trim();
-    const timezone = requested && isValidTimezone(requested) ? requested : context.userContext.timezone || 'UTC';
+    const timezone =
+      requested && isValidTimezone(requested) ? requested : context.userContext.timezone || 'UTC';
     const now = this.clock();
     const parts = Object.fromEntries(
       new Intl.DateTimeFormat('en-GB', {
