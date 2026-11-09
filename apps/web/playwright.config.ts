@@ -51,6 +51,8 @@ export default defineConfig({
           reuseExistingServer: true,
           timeout: 120_000,
           cwd: resolve(__dirname, '..', '..'),
+          // Explicit ports: `next start` also honours PORT, so a shared value would make both servers collide.
+          env: { PORT: String(new URL(API_URL).port || 4000) },
         },
         {
           command: 'pnpm --filter @voice-agent/web start',
@@ -58,6 +60,7 @@ export default defineConfig({
           reuseExistingServer: true,
           timeout: 120_000,
           cwd: resolve(__dirname, '..', '..'),
+          env: { PORT: String(new URL(WEB_URL).port || 3000) },
         },
       ],
 });
