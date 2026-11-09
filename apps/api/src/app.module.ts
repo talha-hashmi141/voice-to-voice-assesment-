@@ -12,7 +12,9 @@ import {
   KnowledgeModule,
   LlmModule,
   OpenAiModule,
+  SpeechModule,
   ToolsModule,
+  VoiceModule,
 } from './modules';
 
 @Module({
@@ -25,12 +27,14 @@ import {
     OpenAiModule,
     EmbeddingsModule,
     LlmModule,
+    SpeechModule,
     HealthModule,
     KnowledgeModule,
     HrModule,
     ToolsModule,
     ConversationsModule,
     AgentModule,
+    VoiceModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

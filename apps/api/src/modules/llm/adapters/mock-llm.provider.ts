@@ -13,6 +13,28 @@ interface SearchPassage {
   text: string;
 }
 
+/** Words too generic to prove a passage actually answers the question. */
+const GENERIC_TERMS = new Set(
+  'policy policies office company employee employees orbital labs what which there about should could would please have need want know tell work working rules rule information days year years time give get make take much many there their these those from with this that'.split(' '),
+);
+const contentWords = (text: string): string[] =>
+  text
+    .toLowerCase()
+    .split(/[^a-z]+/u)
+    .filter((word) => word.length >= 4 && !GENERIC_TERMS.has(word))
+    .map((word) => word.replace(/(ies)$/u, 'y').replace(/(ing|ed|es|s)$/u, ''));
+
+/**
+ * Simulates the "read the passages" step of a real model: a passage only counts as an
+ * answer when it shares at least one distinctive word with the question.
+ */
+const passageAnswers = (question: string, passage: SearchPassage): boolean => {
+  const distinctive = contentWords(question);
+  if (!distinctive.length) return true;
+  const haystack = contentWords(`${passage.document} ${passage.section} ${passage.text}`);
+  return distinctive.some((word) => haystack.includes(word));
+};
+
 /**
  * Deterministic, keyword-driven stand-in for a real model so the whole product – including
  * multi-step tool use, grounding, citations and abstention – runs with no API key.
@@ -109,8 +131,8 @@ export class MockLlmProvider implements LlmProvider {
     const searchData = search?.payload.data as
       | { assessment: 'strong' | 'weak' | 'none'; passages: SearchPassage[] }
       | undefined;
-    if (searchData && searchData.assessment !== 'none' && searchData.passages.length) {
-      const top = searchData.passages[0]!;
+    const top = searchData?.passages.find((passage) => passageAnswers(userText, passage));
+    if (searchData && searchData.assessment !== 'none' && top) {
       const plain = top.text
         .replace(/\*\*/g, '')
         .replace(/^\s*[-*•]\s+/gmu, '')
@@ -122,6 +144,8 @@ export class MockLlmProvider implements LlmProvider {
       if (searchData.assessment === 'weak') {
         parts.push('That is the closest information I have; it may not fully cover your question.');
       }
+    } else if (results.some((r) => r.name !== 'search_knowledge_base' && r.payload.ok)) {
+      parts.push("I couldn't find a matching policy in the knowledge base, but here is what I do know.");
     } else {
       parts.push(
         "I couldn't find anything about that in the Orbital Labs knowledge base, so I'd rather not guess. You can ask People Operations, or I can open a support ticket for you.",
