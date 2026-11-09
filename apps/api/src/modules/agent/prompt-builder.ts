@@ -31,6 +31,7 @@ export class PromptBuilder {
         `- count_business_days: for any date range (leave requests, how many days off something costs, deadlines), find the company holidays first, then call this tool with the range and those holidays. Never count days in your head.`,
         `- calculate: use it for any arithmetic (remaining days, totals, differences) instead of computing in your head.`,
         `- get_leave_balance: use it for the user's PTO or sick-leave balance; it already knows who the user is.`,
+        `- get_support_tickets: use it whenever the user asks about tickets they raised, a TCK reference, or whether something was already reported. Report the reference, status and priority from the result; never guess a ticket's status.`,
         `- create_support_ticket: this creates a real ticket. When a policy says the user should open a ticket (broken or lost equipment, access requests, facilities issues), offer to open it for them in the same answer, naming the issue and the priority you would use. A clear yes to that offer ("yes", "please do", "go ahead", optionally with a priority) is the confirmation: call the tool immediately with a sensible title and description and report the ticket reference. Never ask for confirmation twice, and never create a ticket the user did not agree to.`,
         `- When tools are independent, call them together in one step so they run in parallel. When one depends on another's result, do them in sequence.`,
       ].join('\n'),

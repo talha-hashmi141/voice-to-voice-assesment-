@@ -8,6 +8,7 @@ import {
   CreateSupportTicketTool,
   GetCurrentDateTimeTool,
   GetLeaveBalanceTool,
+  GetSupportTicketsTool,
   SearchKnowledgeBaseTool,
   systemClock,
 } from './implementations';
@@ -23,6 +24,7 @@ const TOOL_CLASSES = [
   CountBusinessDaysTool,
   CalculateTool,
   GetLeaveBalanceTool,
+  GetSupportTicketsTool,
   CreateSupportTicketTool,
 ];
 

@@ -18,7 +18,7 @@ Built for the _Senior Software Engineer: Voice-to-Voice Agent with RAG, Semantic
 
 - **Voice in, voice out.** On-device voice-activity detection (Silero VAD running in the browser) finds the end of your sentence, the audio goes to speech-to-text, the agent answers, and the reply is spoken back sentence by sentence while the model is still generating. Interrupt it by speaking (barge-in), or use push-to-talk or the text box.
 - **Grounded answers with citations.** A hybrid retriever (vector similarity + full-text search, fused with reciprocal rank fusion) finds passages in a twelve-document knowledge base. Answers cite `[1]`, `[2]` chips that open the exact passage.
-- **An agent, not a chatbot.** A ReAct-style loop with five tools: knowledge-base search, current date/time, calculator, leave balance from a mock HR system, and support-ticket creation. Independent tool calls run concurrently; the loop continues until the model has what it needs. Side-effecting actions require the user's confirmation first.
+- **An agent, not a chatbot.** A ReAct-style loop with seven tools: knowledge-base search, current date/time, business-day counting, calculator, leave balance from a mock HR system, ticket lookup through a ticketing API, and support-ticket creation. Independent tool calls run concurrently; the loop continues until the model has what it needs. Side-effecting actions require the user's confirmation first.
 - **Retrieval it can doubt.** Every search is graded _strong / weak / none_ from embedding similarity and cross-channel agreement. The agent reformulates on _weak_ and declines to invent policies on _none_.
 - **Conversation memory.** Token-budgeted history plus a persona (name, employee id, department, timezone) so follow-ups like "and what about sick days?" work and the agent never asks for things it already knows.
 - **Observability built in.** Per-turn latency (speech-to-text, first token, first audio, total), tool calls with arguments and results, and retrieval grades are streamed to a trace panel as they happen.
@@ -201,7 +201,7 @@ Even with lexical mock vectors, fusing the channels beats either alone; with rea
 ## The agent
 
 - **Loop**: pre-fetch passages for the message → stream a model step → if it requested tools, run them all concurrently with per-tool timeouts → append results → repeat, up to `AGENT_MAX_STEPS` (6). Failures become structured `{ ok: false, error }` payloads the model can recover from. The pre-fetch is skipped for short confirmations ("yes please").
-- **Tools** (`apps/api/src/modules/tools/implementations`), six in total:
+- **Tools** (`apps/api/src/modules/tools/implementations`), seven in total:
 
   | Tool                    | Purpose                                                                                   | Side effects       |
   | ----------------------- | ----------------------------------------------------------------------------------------- | ------------------ |

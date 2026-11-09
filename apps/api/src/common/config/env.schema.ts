@@ -26,6 +26,8 @@ export const EnvSchema = z.object({
   OPENAI_TTS_VOICE: z.string().default('coral'),
 
   RERANK_ENABLED: BooleanString.default(false),
+  /** Base URL of the ticketing REST API used by the get_support_tickets tool; "inprocess" bypasses HTTP (tests). */
+  TICKETING_API_URL: z.string().optional(),
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(12).default(6),
   AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(4096).default(400),
   AGENT_EAGER_RETRIEVAL: BooleanString.default(true),

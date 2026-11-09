@@ -22,7 +22,7 @@ describe('Tools & HR API (e2e)', () => {
     await app?.close();
   });
 
-  it('GET /api/tools lists the six tools with argument schemas and side-effect flags', async () => {
+  it('GET /api/tools lists the seven tools with argument schemas and side-effect flags', async () => {
     const body = (await http().get('/api/tools').expect(200)).body as ToolListResponse;
     expect(body.tools.map((t) => t.name).sort()).toEqual([
       'calculate',
@@ -30,6 +30,7 @@ describe('Tools & HR API (e2e)', () => {
       'create_support_ticket',
       'get_current_datetime',
       'get_leave_balance',
+      'get_support_tickets',
       'search_knowledge_base',
     ]);
     expect(body.tools.filter((t) => t.mutating).map((t) => t.name)).toEqual([
@@ -88,5 +89,39 @@ describe('Tools & HR API (e2e)', () => {
       .patch('/api/hr/tickets/00000000-0000-0000-0000-000000000000/status')
       .send({ status: 'open' })
       .expect(404);
+  });
+
+  it('GET /api/hr/tickets filters by requester, status and reference', async () => {
+    const all = (await http().get('/api/hr/tickets').expect(200)).body as {
+      tickets: { reference: string; requesterEmployeeId: string }[];
+    };
+    const sample = all.tickets[0]!;
+    const byRef = (
+      await http().get(`/api/hr/tickets?reference=${sample.reference.toLowerCase()}`).expect(200)
+    ).body as {
+      tickets: unknown[];
+    };
+    expect(byRef.tickets).toHaveLength(1);
+    const byRequester = (
+      await http()
+        .get(`/api/hr/tickets?requesterEmployeeId=${sample.requesterEmployeeId}&status=resolved`)
+        .expect(200)
+    ).body as { tickets: { status: string }[] };
+    expect(byRequester.tickets.every((t) => t.status === 'resolved')).toBe(true);
+    await http().get('/api/hr/tickets?status=bogus').expect(400);
+  });
+
+  it("the agent answers questions about the user's own tickets through get_support_tickets", async () => {
+    const body = (
+      await http()
+        .post('/api/agent/turn')
+        .send({ text: 'What is the status of my tickets?' })
+        .expect(200)
+    ).body as TurnResponse;
+    const tools = body.assistantMessage.steps
+      .filter((s) => s.type === 'tool_call')
+      .map((s) => s.data?.name);
+    expect(tools).toContain('get_support_tickets');
+    expect(body.assistantMessage.content).toMatch(/TCK-[A-Z0-9]{6}/u);
   });
 });

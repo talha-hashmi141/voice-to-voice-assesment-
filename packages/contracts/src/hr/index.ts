@@ -48,3 +48,12 @@ export const EmployeeListResponseSchema = z.object({
   employees: z.array(LeaveBalanceSchema),
 });
 export type EmployeeListResponse = z.infer<typeof EmployeeListResponseSchema>;
+
+/** Query parameters of GET /hr/tickets. */
+export const TicketQuerySchema = z.object({
+  requesterEmployeeId: z.string().trim().min(1).optional(),
+  status: TicketStatusSchema.optional(),
+  reference: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+export type TicketQuery = z.infer<typeof TicketQuerySchema>;

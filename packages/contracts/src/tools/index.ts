@@ -8,6 +8,7 @@ export const ToolNameSchema = z.enum([
   'count_business_days',
   'calculate',
   'get_leave_balance',
+  'get_support_tickets',
   'create_support_ticket',
 ]);
 export type ToolName = z.infer<typeof ToolNameSchema>;
@@ -72,6 +73,26 @@ export const GetLeaveBalanceArgsSchema = z.object({
 });
 export type GetLeaveBalanceArgs = z.infer<typeof GetLeaveBalanceArgsSchema>;
 
+export const GetSupportTicketsArgsSchema = z.object({
+  status: z
+    .enum(['open', 'in_progress', 'resolved', 'all'])
+    .default('all')
+    .describe('Filter by status; "all" returns every ticket of the current user.'),
+  reference: z
+    .string()
+    .trim()
+    .optional()
+    .describe('A specific ticket reference such as "TCK-4F7A2C" when the user names one.'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .default(10)
+    .describe('Maximum number of tickets to return (newest first).'),
+});
+export type GetSupportTicketsArgs = z.infer<typeof GetSupportTicketsArgsSchema>;
+
 export const CreateSupportTicketArgsSchema = z.object({
   title: z.string().trim().min(3).max(120).describe('Short summary of the issue.'),
   description: z
@@ -90,6 +111,7 @@ export const TOOL_ARG_SCHEMAS = {
   count_business_days: CountBusinessDaysArgsSchema,
   calculate: CalculateArgsSchema,
   get_leave_balance: GetLeaveBalanceArgsSchema,
+  get_support_tickets: GetSupportTicketsArgsSchema,
   create_support_ticket: CreateSupportTicketArgsSchema,
 } as const satisfies Record<ToolName, z.ZodType>;
 

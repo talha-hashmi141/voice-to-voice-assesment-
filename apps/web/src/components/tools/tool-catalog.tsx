@@ -20,6 +20,7 @@ const ICONS: Record<string, typeof SearchIcon> = {
   count_business_days: CalendarRangeIcon,
   calculate: CalculatorIcon,
   get_leave_balance: WalletIcon,
+  get_support_tickets: TicketIcon,
   create_support_ticket: TicketIcon,
 };
 
@@ -30,6 +31,7 @@ export const TOOL_TRIGGERS: Record<string, string> = {
   count_business_days: '“If I take December 21st to the 31st off, how many PTO days is that?”',
   calculate: '“I have used seven days; how many are left if I take five more?”',
   get_leave_balance: '“How many PTO days do I have left?”',
+  get_support_tickets: '“What is the status of my tickets?” or “Any update on TCK-…?”',
   create_support_ticket: '“My laptop screen is cracked” → “Yes please, high priority”',
 };
 

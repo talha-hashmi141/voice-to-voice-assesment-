@@ -6,7 +6,7 @@ test.describe('Tools & tickets dashboard', () => {
   }) => {
     await page.goto('/tools');
     await expect(page.getByRole('heading', { name: 'Tools & tickets' })).toBeVisible();
-    await expect(page.locator('[data-testid^="tool-"]')).toHaveCount(6);
+    await expect(page.locator('[data-testid^="tool-"]')).toHaveCount(7);
     await expect(
       page.getByTestId('tool-create_support_ticket').getByText('creates records'),
     ).toBeVisible();

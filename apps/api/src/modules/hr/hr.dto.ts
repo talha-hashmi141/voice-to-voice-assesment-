@@ -3,6 +3,7 @@ import {
   LeaveBalanceSchema,
   SupportTicketSchema,
   TicketListResponseSchema,
+  TicketQuerySchema,
   UpdateTicketStatusRequestSchema,
 } from '@voice-agent/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -12,3 +13,4 @@ export class EmployeeListResponseDto extends createZodDto(EmployeeListResponseSc
 export class TicketListResponseDto extends createZodDto(TicketListResponseSchema) {}
 export class SupportTicketDto extends createZodDto(SupportTicketSchema) {}
 export class UpdateTicketStatusRequestDto extends createZodDto(UpdateTicketStatusRequestSchema) {}
+export class TicketQueryDto extends createZodDto(TicketQuerySchema) {}

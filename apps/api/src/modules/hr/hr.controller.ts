@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Patch, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
 import {
@@ -6,6 +6,7 @@ import {
   LeaveBalanceDto,
   SupportTicketDto,
   TicketListResponseDto,
+  TicketQueryDto,
   UpdateTicketStatusRequestDto,
 } from './hr.dto';
 import { HrService } from './hr.service';
@@ -36,11 +37,14 @@ export class HrController {
   }
 
   @Get('tickets')
-  @ApiOperation({ summary: 'Support tickets created by the agent' })
+  @ApiOperation({
+    summary:
+      'Support tickets created by the agent, optionally filtered by requester, status or reference',
+  })
   @ApiOkResponse({ type: TicketListResponseDto })
   @ZodSerializerDto(TicketListResponseDto)
-  async listTickets(): Promise<TicketListResponseDto> {
-    return { tickets: await this.tickets.findRecent() };
+  async listTickets(@Query() query: TicketQueryDto): Promise<TicketListResponseDto> {
+    return { tickets: await this.tickets.find(query) };
   }
 
   @Patch('tickets/:id/status')

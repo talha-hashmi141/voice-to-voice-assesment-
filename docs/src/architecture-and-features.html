@@ -47,7 +47,7 @@
 <h2>1. Executive summary</h2>
 <p>The Orbital Voice Agent lets an employee talk to an assistant that answers from a company handbook, uses tools when it needs facts the handbook cannot give (dates, balances, arithmetic) or when it must act (open a ticket), and talks back. Every answer is grounded in cited passages, every step of the agent's reasoning is streamed to the screen, and every turn records its latency, token usage and estimated cost.</p>
 <div class="kpi">
-  <div><strong>6</strong><span>agent tools, one of them side-effecting</span></div>
+  <div><strong>7</strong><span>agent tools, one of them side-effecting</span></div>
   <div><strong>12</strong><span>handbook documents · 71 indexed chunks</span></div>
   <div><strong>≈ 1.9 s</strong><span>typed question to full answer (one model call)</span></div>
   <div><strong>≈ $0.005</strong><span>per spoken turn at list prices</span></div>
@@ -87,7 +87,7 @@
       <li><strong>ReAct-style loop</strong> with a step budget; tool failures are fed back as structured errors the model can recover from.</li>
       <li><strong>Eager retrieval</strong>: passages for the message are fetched before the first model call, so most questions finish in one round.</li>
       <li><strong>Concurrent tool execution</strong> with per-tool timeouts and cancellation.</li>
-      <li><strong>Six tools</strong>: knowledge search, current date/time, business-day counting, calculator, leave balance, support ticket.</li>
+      <li><strong>Seven tools</strong>: knowledge search, current date/time, business-day counting, calculator, leave balance, ticket lookup through a ticketing API, support ticket creation.</li>
       <li><strong>Confirmation before side effects</strong>: the agent offers to open a ticket and acts only on a clear yes.</li>
       <li><strong>Citations</strong> renumbered in order of appearance; markers are removed from speech.</li>
       <li><strong>Memory</strong>: token-budgeted sliding window plus a persona (name, employee id, department, timezone), so follow-ups work and nothing already known is asked again.</li>
@@ -316,6 +316,7 @@ flowchart LR
   <tr><td><code>count_business_days</code></td><td>Working days in a range minus the holidays the agent looked up</td><td>none</td><td>Trace: "9 weekdays − 3 holidays = 6 business days"</td></tr>
   <tr><td><code>calculate</code></td><td>Sandboxed arithmetic (mathjs with code-execution functions removed)</td><td>none</td><td>Trace result summary</td></tr>
   <tr><td><code>get_leave_balance</code></td><td>PTO and sick balance from the simulated HR system; defaults to the current persona</td><td>none</td><td>Trace; HR cards on the Tools page</td></tr>
+  <tr><td><code>get_support_tickets</code></td><td>The user's tickets with status and priority, fetched <strong>over HTTP from the ticketing REST API</strong> (<code>TICKETING_API_URL</code>; this app's own <code>/api/hr</code> by default, in-process in tests)</td><td>none</td><td>Trace; matches the Tools & tickets table</td></tr>
   <tr><td><code>create_support_ticket</code></td><td>Opens a ticket after explicit confirmation; returns a TCK-reference</td><td><span class="tag red">writes</span></td><td>Tools & tickets page (status editable), <code>GET /api/hr/tickets</code></td></tr>
 </table>
 <p>Tools implement one interface (name, description, Zod argument schema, timeout, mutating flag, <code>execute</code>). The registry converts schemas to JSON Schema for the model and the executor validates arguments before running anything. The Tools & tickets page shows the catalogue exactly as the model sees it, aggregated usage from stored traces, the tickets table and the HR balances.</p>
@@ -386,7 +387,7 @@ erDiagram
   <tr><td>POST</td><td><code>/api/agent/turn</code></td><td>one non-streaming text turn</td></tr>
   <tr><td>GET/POST/DELETE</td><td><code>/api/conversations[/:id]</code></td><td>history with transcripts, sources, traces, metrics</td></tr>
   <tr><td>GET</td><td><code>/api/tools</code> · <code>/api/tools/usage</code></td><td>tool catalogue with schemas · usage statistics and recent invocations</td></tr>
-  <tr><td>GET/PATCH</td><td><code>/api/hr/tickets[/:id/status]</code> · <code>/api/hr/employees[/:id/leave-balance]</code></td><td>tickets created by the agent · mock HR data</td></tr>
+  <tr><td>GET/PATCH</td><td><code>/api/hr/tickets?requesterEmployeeId=&amp;status=&amp;reference=</code> · <code>/api/hr/tickets/:id/status</code> · <code>/api/hr/employees[/:id/leave-balance]</code></td><td>tickets created by the agent (filterable; backend of the ticket-lookup tool) · mock HR data</td></tr>
 </table>
 <p>Socket.IO namespace <code>/voice</code> (typed in <code>packages/contracts</code>): client → server <code>session.start</code>, <code>audio.submit</code>, <code>text.submit</code>, <code>turn.cancel</code>, <code>conversation.reset</code>; server → client <code>session.ready</code>, <code>turn.state</code>, <code>transcript.user</code>, <code>agent.text.delta</code>, <code>agent.tool.call</code>, <code>agent.tool.result</code>, <code>agent.retrieval.evaluated</code>, <code>agent.audio</code> (seq, part, final, PCM), <code>turn.completed</code>, <code>turn.error</code> (with a <code>fatal</code> flag). OpenAPI documentation is served at <code>/api/docs</code>.</p>
 
@@ -420,7 +421,7 @@ erDiagram
 <table>
   <tr><th>Suite</th><th>Covers</th></tr>
   <tr><td>API unit (Jest, 71)</td><td>chunking, RRF, BM25, grading, tool registry/executor, tools, mock providers, memory, citations, prompt, agent loop with a scripted model (single step, concurrent tools, eager retrieval, weak → reformulate, failure recovery, step budget, cancellation), sentence chunker, streamed speech scheduler, voice pipeline</td></tr>
-  <tr><td>API e2e (Jest + supertest + socket.io-client, 18)</td><td>knowledge endpoints on a real Postgres, agent turns with memory and a confirmed ticket, personas, tools and HR endpoints, the Socket.IO gateway with ordered audio</td></tr>
+  <tr><td>API e2e (Jest + supertest + socket.io-client, 20)</td><td>knowledge endpoints on a real Postgres, agent turns with memory and a confirmed ticket, personas, tools and HR endpoints, the Socket.IO gateway with ordered audio</td></tr>
   <tr><td>Contracts + web unit (Vitest, 13)</td><td>schema defaults and tool-name coverage, session store state machine, ordered audio queue incl. raw PCM, WAV encoder</td></tr>
   <tr><td>Browser e2e (Playwright, 7)</td><td>knowledge search and viewer, agent text turns with citations and trace, multi-turn confirmed action, conversations, theme, tools dashboard, and a hands-free voice turn with Chromium's fake microphone fed a synthesized utterance</td></tr>
 </table>
@@ -434,6 +435,7 @@ erDiagram
   <tr><td><code>OPENAI_STT_MODEL</code> / <code>OPENAI_TTS_MODEL</code> / <code>OPENAI_TTS_VOICE</code></td><td>gpt-4o-transcribe / gpt-4o-mini-tts / coral</td><td>speech models and voice</td></tr>
   <tr><td><code>AGENT_MAX_STEPS</code> · <code>AGENT_MAX_OUTPUT_TOKENS</code> · <code>AGENT_EAGER_RETRIEVAL</code></td><td>6 · 400 · true</td><td>loop budget, reply cap, pre-fetch</td></tr>
   <tr><td><code>RETRIEVAL_TOP_K</code> · <code>RETRIEVAL_SPARSE_WEIGHT</code> · <code>RERANK_ENABLED</code></td><td>5 · 0.7 · false</td><td>passages per search, keyword weight in fusion, optional reranker</td></tr>
+  <tr><td><code>TICKETING_API_URL</code></td><td>this API's <code>/api/hr</code></td><td>ticketing REST API the ticket-lookup tool calls (<code>inprocess</code> in tests)</td></tr>
   <tr><td><code>DATABASE_URL</code> · <code>REDIS_URL</code> · <code>DB_MIGRATE_ON_START</code></td><td>compose defaults</td><td>infrastructure</td></tr>
 </table>
 <p>Commands: <code>pnpm bootstrap</code> (idempotent setup), <code>pnpm dev</code>, <code>pnpm build / lint / typecheck / test</code>, <code>pnpm db:seed</code>, <code>pnpm eval:retrieval</code>, <code>pnpm --filter @voice-agent/api bench:speech</code>, <code>pnpm infra:up / infra:down / infra:reset</code>.</p>

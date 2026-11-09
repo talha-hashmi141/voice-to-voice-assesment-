@@ -106,6 +106,7 @@ const TOOL_LABELS: Record<string, string> = {
   count_business_days: 'Counting working days',
   calculate: 'Calculating',
   get_leave_balance: 'Looking up leave balance',
+  get_support_tickets: 'Checking your support tickets',
   create_support_ticket: 'Creating a support ticket',
 };
 

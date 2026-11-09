@@ -25,6 +25,7 @@ const ICONS: Record<string, typeof SearchIcon> = {
   count_business_days: CalendarClockIcon,
   calculate: CalculatorIcon,
   get_leave_balance: WalletIcon,
+  get_support_tickets: TicketIcon,
   create_support_ticket: TicketIcon,
 };
 

@@ -70,6 +70,13 @@ export class AppConfigService {
     };
   }
 
+  /** Where the ticket-lookup tool sends its HTTP calls; defaults to this API's own /hr endpoints. */
+  get ticketingApiUrl(): string {
+    const configured = this.config.get('TICKETING_API_URL', { infer: true });
+    if (configured) return configured;
+    return this.isTest ? 'inprocess' : `http://localhost:${this.port}/api/hr`;
+  }
+
   get agent() {
     return {
       maxSteps: this.config.get('AGENT_MAX_STEPS', { infer: true }),

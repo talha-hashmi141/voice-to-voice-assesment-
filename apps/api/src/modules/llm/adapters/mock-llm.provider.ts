@@ -116,6 +116,16 @@ export class MockLlmProvider implements LlmProvider {
       return calls;
     }
 
+    if (
+      available.has('get_support_tickets') &&
+      /\b(my tickets?|ticket status|status of (my|the) ticket|tck-[a-z0-9]+|tickets? (i|we) (raised|opened|created))\b/u.test(
+        text,
+      )
+    ) {
+      const reference = /tck-[a-z0-9]{6}/u.exec(text)?.[0]?.toUpperCase();
+      calls.push(this.call('get_support_tickets', reference ? { reference } : { status: 'all' }));
+      return calls;
+    }
     if (available.has('search_knowledge_base')) {
       calls.push(this.call('search_knowledge_base', { queries: [userText], topK: 5 }));
     }
@@ -151,6 +161,19 @@ export class MockLlmProvider implements LlmProvider {
     if (ticket) {
       const data = ticket.payload.data as { reference: string; priority: string };
       return `Done. I opened support ticket ${data.reference} with ${data.priority} priority. The IT team will follow the helpdesk response targets for that priority.`;
+    }
+
+    const lookup = results.find((r) => r.name === 'get_support_tickets' && r.payload.ok);
+    if (lookup) {
+      const data = lookup.payload.data as {
+        tickets: { reference: string; title: string; status: string; priority: string }[];
+      };
+      if (!data.tickets.length) return "You don't have any support tickets on record.";
+      const lines = data.tickets
+        .slice(0, 5)
+        .map((t) => `${t.reference} (${t.priority}, ${t.status.replace('_', ' ')}): ${t.title}`)
+        .join('; ');
+      return `You have ${data.tickets.length} ticket${data.tickets.length === 1 ? '' : 's'}: ${lines}.`;
     }
 
     const search = results.find((r) => r.name === 'search_knowledge_base');
