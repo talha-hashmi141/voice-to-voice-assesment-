@@ -19,6 +19,10 @@ const message = (id: string, role: 'user' | 'assistant', content: string): Messa
           totalMs: 2100,
           llmCalls: 2,
           toolCalls: 2,
+          promptTokens: 3200,
+          cachedPromptTokens: 1024,
+          completionTokens: 120,
+          estimatedCostUsd: 0.0012,
         }
       : null,
   createdAt: new Date().toISOString(),

@@ -89,9 +89,15 @@ export interface AgentRetrievalEvaluatedPayload {
 
 export interface AgentAudioPayload {
   turnId: string;
-  /** Monotonic sequence number so the client can play clips in order. */
+  /** Sentence index within the turn; clips are emitted strictly in order. */
   seq: number;
+  /** Chunk index within the sentence (streamed speech arrives in several parts). */
+  part: number;
+  /** True on the last chunk of the sentence. */
+  final: boolean;
+  /** "audio/pcm" (16-bit little-endian mono at `sampleRate`) for streamed speech, or a container type such as "audio/wav". */
   mimeType: string;
+  sampleRate?: number;
   data: ArrayBuffer | Uint8Array;
   /** The sentence this clip speaks. */
   text: string;
@@ -110,6 +116,8 @@ export interface TurnErrorPayload {
   turnId: string | null;
   code: string;
   message: string;
+  /** false for recoverable problems (e.g. one speech clip failed) – the turn still completes. */
+  fatal?: boolean;
 }
 
 /* ─────────────── event names ─────────────── */

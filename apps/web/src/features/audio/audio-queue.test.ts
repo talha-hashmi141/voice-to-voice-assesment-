@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AudioQueue } from './audio-queue';
+import { AudioQueue, pcmToAudioBuffer } from './audio-queue';
 
 /** Minimal AudioContext double: decodes "clips" whose duration is encoded in the first byte. */
 class FakeSource {
@@ -31,6 +31,10 @@ class FakeAudioContext {
     this.sources.push(source);
     return source;
   }
+  createBuffer(_channels: number, length: number, sampleRate: number) {
+    const channel = new Float32Array(length);
+    return { duration: length / sampleRate, getChannelData: () => channel, length, sampleRate };
+  }
 }
 
 describe('AudioQueue', () => {
@@ -55,9 +59,9 @@ describe('AudioQueue', () => {
     const ended = vi.fn();
     const queue = new AudioQueue({ onPlaybackStart: started, onPlaybackEnd: ended });
     queue.beginTurn();
-    queue.enqueue(0, clip(30), 'audio/wav'); // slow decode
-    queue.enqueue(1, clip(5), 'audio/wav'); // fast decode
-    queue.enqueue(2, clip(5), 'audio/wav');
+    queue.enqueue(clip(30), { mimeType: 'audio/wav' }); // slow decode
+    queue.enqueue(clip(5), { mimeType: 'audio/wav' }); // fast decode
+    queue.enqueue(clip(5), { mimeType: 'audio/wav' });
     await new Promise((r) => setTimeout(r, 80));
 
     expect(context.sources.map((s) => s.buffer?.duration)).toEqual([3, 0.5, 0.5]);
@@ -72,12 +76,27 @@ describe('AudioQueue', () => {
     const ended = vi.fn();
     const queue = new AudioQueue({ onPlaybackEnd: ended });
     queue.beginTurn();
-    queue.enqueue(0, clip(2), 'audio/wav');
+    queue.enqueue(clip(2), { mimeType: 'audio/wav' });
     await new Promise((r) => setTimeout(r, 5));
-    queue.enqueue(1, clip(40), 'audio/wav');
+    queue.enqueue(clip(40), { mimeType: 'audio/wav' });
     queue.stop();
     await new Promise((r) => setTimeout(r, 60));
     expect(context.sources).toHaveLength(1);
     expect(queue.isPlaying).toBe(false);
+  });
+
+  it('plays raw PCM chunks without decoding, scheduled back to back', async () => {
+    const queue = new AudioQueue();
+    queue.beginTurn();
+    const pcm = new Int16Array([0, 16384, -16384, 32767]).buffer;
+    queue.enqueue(pcm, { mimeType: 'audio/pcm', sampleRate: 24_000 });
+    queue.enqueue(pcm, { mimeType: 'audio/pcm', sampleRate: 24_000 });
+    await new Promise((r) => setTimeout(r, 5));
+    expect(context.decoded).toEqual([]);
+    expect(context.sources).toHaveLength(2);
+    const [a, b] = context.sources.map((s) => s.started[0]!);
+    expect(b).toBeCloseTo(a! + 4 / 24_000, 6);
+    const buffer = pcmToAudioBuffer(context as unknown as AudioContext, pcm, 24_000);
+    expect(Array.from(buffer.getChannelData(0))).toEqual([0, 0.5, -0.5, 32767 / 32768]);
   });
 });

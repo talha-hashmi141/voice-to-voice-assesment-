@@ -22,6 +22,7 @@ import { LatencyBadges } from '../voice/latency-badges';
 const ICONS: Record<string, typeof SearchIcon> = {
   search_knowledge_base: SearchIcon,
   get_current_datetime: CalendarClockIcon,
+  count_business_days: CalendarClockIcon,
   calculate: CalculatorIcon,
   get_leave_balance: WalletIcon,
   create_support_ticket: TicketIcon,

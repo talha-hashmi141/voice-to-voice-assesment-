@@ -171,7 +171,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.emitError(client, null, 'INVALID_PAYLOAD', 'audio (binary) and mimeType are required');
       return;
     }
-    void this.startTurn(client, { audio: { data: buffer, mimeType: parsedMeta.data.mimeType } });
+    void this.startTurn(client, {
+      audio: {
+        data: buffer,
+        mimeType: parsedMeta.data.mimeType,
+        durationMs: parsedMeta.data.durationMs,
+      },
+    });
   }
 
   @SubscribeMessage(ClientEvents.TurnCancel)
@@ -269,7 +275,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit(ServerEvents.AgentAudio, {
           turnId,
           seq: event.seq,
+          part: event.part,
+          final: event.final,
           mimeType: event.mimeType,
+          sampleRate: event.sampleRate,
           data: event.data,
           text: event.text,
         });
@@ -292,7 +301,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
         break;
       case 'error':
-        this.emitError(client, turnId, event.code, event.message);
+        this.emitError(client, turnId, event.code, event.message, event.fatal);
         break;
     }
   }
@@ -302,8 +311,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     turnId: string | null,
     code: string,
     message: string,
+    fatal = true,
   ): void {
-    client.emit(ServerEvents.TurnError, { turnId, code, message });
+    client.emit(ServerEvents.TurnError, { turnId, code, message, fatal });
   }
 
   private abortActive(clientId: string): void {

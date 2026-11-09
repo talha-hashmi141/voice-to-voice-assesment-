@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type TurnMetrics, type UserContext } from '@voice-agent/contracts';
 import { AppConfigService, Stopwatch } from '../../common';
 import { AgentRuntime, type AgentTurnResult } from '../agent';
+import { estimateSttCost, estimateTtsCost, sumCosts } from '../llm';
 import { MessageRepository } from '../conversations';
 import {
   DOMAIN_VOCABULARY_PROMPT,
@@ -19,10 +20,14 @@ export interface VoiceTurnInput {
   turnId: string;
   conversationId: string;
   userContext: UserContext;
-  audio?: { data: Buffer; mimeType: string };
+  audio?: { data: Buffer; mimeType: string; durationMs?: number };
   text?: string;
   signal: AbortSignal;
 }
+
+/** Milliseconds of a 16-bit mono 16 kHz WAV from its byte length (fallback when the client sends no duration). */
+const estimateWavMs = (data: Buffer): number =>
+  Math.max(0, (data.byteLength - 44) / 2 / 16_000) * 1000;
 
 const TTS_INSTRUCTIONS =
   'Speak like a friendly, efficient colleague: warm, clear, moderately paced, natural intonation.';
@@ -153,12 +158,24 @@ export class VoiceTurnPipeline {
     if (!result) throw new Error('The agent produced no result');
 
     await speaker.drain();
+    if (input.signal.aborted) {
+      queue.push({ type: 'cancelled' });
+      return;
+    }
+    const audioSeconds = input.audio
+      ? (input.audio.durationMs ?? estimateWavMs(input.audio.data)) / 1000
+      : 0;
     const metrics: TurnMetrics = {
       ...result.metrics,
       sttMs,
       firstAudioMs: stopwatch.get('first_audio'),
       ttsMs: speaker.firstSynthesisMs,
       totalMs: stopwatch.elapsed(),
+      estimatedCostUsd: sumCosts(
+        result.metrics.estimatedCostUsd,
+        input.audio ? estimateSttCost(this.stt.model, audioSeconds) : null,
+        estimateTtsCost(this.tts.model, speaker.spokenWords),
+      ),
     };
     await this.messages.updateMetrics(result.assistantMessage.id, metrics);
     queue.push({

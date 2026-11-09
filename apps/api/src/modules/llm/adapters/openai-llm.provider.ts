@@ -12,6 +12,7 @@ import {
   type LlmStreamEvent,
   type LlmToolCall,
   type LlmToolDefinition,
+  type LlmUsage,
 } from '../llm-provider.port';
 
 function toOpenAiMessages(messages: LlmMessage[]): ChatCompletionMessageParam[] {
@@ -84,7 +85,7 @@ export class OpenAiLlmProvider implements LlmProvider {
 
     const pending = new Map<number, LlmToolCall>();
     let finishReason: LlmFinishReason = 'other';
-    let usage: { promptTokens: number; completionTokens: number } | undefined;
+    let usage: LlmUsage | undefined;
 
     for await (const chunk of stream as AsyncIterable<ChatCompletionChunk>) {
       const choice = chunk.choices[0];
@@ -101,6 +102,7 @@ export class OpenAiLlmProvider implements LlmProvider {
         usage = {
           promptTokens: chunk.usage.prompt_tokens,
           completionTokens: chunk.usage.completion_tokens,
+          cachedPromptTokens: chunk.usage.prompt_tokens_details?.cached_tokens ?? 0,
         };
       }
     }

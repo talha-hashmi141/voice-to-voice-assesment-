@@ -4,6 +4,7 @@ import { TicketPrioritySchema } from '../hr';
 export const ToolNameSchema = z.enum([
   'search_knowledge_base',
   'get_current_datetime',
+  'count_business_days',
   'calculate',
   'get_leave_balance',
   'create_support_ticket',
@@ -36,6 +37,21 @@ export const GetCurrentDateTimeArgsSchema = z.object({
     .describe('IANA timezone such as "Europe/London". Defaults to the user\'s timezone.'),
 });
 export type GetCurrentDateTimeArgs = z.infer<typeof GetCurrentDateTimeArgsSchema>;
+
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, 'Use YYYY-MM-DD');
+
+export const CountBusinessDaysArgsSchema = z.object({
+  startDate: IsoDate.describe('First day of the range, inclusive (YYYY-MM-DD).'),
+  endDate: IsoDate.describe('Last day of the range, inclusive (YYYY-MM-DD).'),
+  holidays: z
+    .array(IsoDate)
+    .max(60)
+    .default([])
+    .describe(
+      'Company holidays to exclude (YYYY-MM-DD), taken from the holiday calendar in the knowledge base.',
+    ),
+});
+export type CountBusinessDaysArgs = z.infer<typeof CountBusinessDaysArgsSchema>;
 
 export const CalculateArgsSchema = z.object({
   expression: z
@@ -70,6 +86,7 @@ export type CreateSupportTicketArgs = z.infer<typeof CreateSupportTicketArgsSche
 export const TOOL_ARG_SCHEMAS = {
   search_knowledge_base: SearchKnowledgeBaseArgsSchema,
   get_current_datetime: GetCurrentDateTimeArgsSchema,
+  count_business_days: CountBusinessDaysArgsSchema,
   calculate: CalculateArgsSchema,
   get_leave_balance: GetLeaveBalanceArgsSchema,
   create_support_ticket: CreateSupportTicketArgsSchema,

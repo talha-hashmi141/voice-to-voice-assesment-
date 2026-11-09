@@ -12,7 +12,7 @@ export interface ConversationMemory {
   dropped: number;
 }
 
-export const DEFAULT_HISTORY_TOKEN_BUDGET = 6_000;
+export const DEFAULT_HISTORY_TOKEN_BUDGET = 4_000;
 
 /**
  * Conversation memory = sliding window over the transcript (token-budgeted, newest first)

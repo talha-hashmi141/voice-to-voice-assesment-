@@ -6,6 +6,7 @@ import {
   type MemoryService,
   type MessageRepository,
 } from '../conversations';
+import { type RetrievalEvaluator, type RetrievalService } from '../knowledge';
 import { type LlmChatOptions, type LlmProvider, type LlmStreamEvent } from '../llm';
 import { type Tool, ToolExecutor, ToolRegistry } from '../tools';
 import { type AgentEvent } from './agent-events';
@@ -97,7 +98,7 @@ const calculateTool: Tool = {
   },
 };
 
-function makeRuntime(llm: LlmProvider, tools: Tool[], maxSteps = 6) {
+function makeRuntime(llm: LlmProvider, tools: Tool[], maxSteps = 6, eager = false) {
   const rows: MessageRow[] = [];
   const messages = {
     append: jest.fn(async (input: { role: string; content: string }) => {
@@ -127,9 +128,37 @@ function makeRuntime(llm: LlmProvider, tools: Tool[], maxSteps = 6) {
     }),
   } as unknown as MemoryService;
   const config = {
-    agent: { maxSteps, retrievalTopK: 5, rerankEnabled: false },
+    agent: {
+      maxSteps,
+      retrievalTopK: 5,
+      rerankEnabled: false,
+      maxOutputTokens: 400,
+      eagerRetrieval: eager,
+    },
   } as unknown as AppConfigService;
   const registry = new ToolRegistry(tools);
+  const retrieval = {
+    search: jest.fn(async () => ({
+      hits: [
+        {
+          chunkId: 'chunk-eager',
+          documentId: 'doc',
+          documentSlug: 'pto-and-leave-policy',
+          documentTitle: 'PTO and Leave Policy',
+          sectionPath: 'Allowance',
+          content: 'Every full-time employee receives 20 days of paid time off per calendar year.',
+          rank: 1,
+          scores: { fused: 1, dense: 0.6, sparse: 1 },
+        },
+      ],
+      tookMs: 5,
+      queries: ['q'],
+      channels: { dense: 1, sparse: 1 },
+    })),
+  } as unknown as RetrievalService;
+  const evaluator = {
+    evaluate: () => ({ assessment: 'strong', topScore: 0.6, confidentHits: 1, reason: 'test' }),
+  } as unknown as RetrievalEvaluator;
   const runtime = new AgentRuntime(
     llm,
     registry,
@@ -139,8 +168,10 @@ function makeRuntime(llm: LlmProvider, tools: Tool[], maxSteps = 6) {
     messages,
     conversations,
     config,
+    retrieval,
+    evaluator,
   );
-  return { runtime, rows, messages, conversations };
+  return { runtime, rows, messages, conversations, retrieval };
 }
 
 async function collect(
@@ -278,6 +309,43 @@ describe('AgentRuntime', () => {
     const result = completedOf(await collect(runtime, 'loop forever'));
     expect(result.metrics.llmCalls).toBe(2);
     expect(result.text).toMatch(/rephrase/u);
+  });
+
+  it('pre-fetches passages before the first model call so simple questions finish in one round', async () => {
+    const llm = new ScriptedLlm([text('You get twenty days a year [1].')]);
+    const { runtime, retrieval } = makeRuntime(llm, [calculateTool], 6, true);
+    const events = await collect(runtime, 'How many vacation days do I get each year?');
+    expect(retrieval.search).toHaveBeenCalledTimes(1);
+    const calls = events
+      .filter((e) => e.type === 'tool_call')
+      .map((e) => (e.type === 'tool_call' ? e.args : null));
+    expect(calls).toEqual([
+      { queries: ['How many vacation days do I get each year?'], eager: true },
+    ]);
+    expect(events.find((e) => e.type === 'retrieval_evaluated')).toMatchObject({
+      assessment: 'strong',
+    });
+    const result = completedOf(events);
+    expect(result.metrics.llmCalls).toBe(1);
+    expect(result.sources).toHaveLength(1);
+    expect(result.text).toBe('You get twenty days a year [1].');
+    const prompt = llm.requests[0]!.messages;
+    const injected = prompt[prompt.length - 2] as { role: string; content: string };
+    expect(injected.role).toBe('system');
+    expect(injected.content).toContain('[1] PTO and Leave Policy');
+    expect(prompt[prompt.length - 1]).toEqual({
+      role: 'user',
+      content: 'How many vacation days do I get each year?',
+    });
+  });
+
+  it('skips pre-fetching for confirmations and very short replies', async () => {
+    for (const reply of ['yes please', 'Yes please, high priority', 'ok go ahead', 'thanks']) {
+      const llm = new ScriptedLlm([text('Done.')]);
+      const { runtime, retrieval } = makeRuntime(llm, [calculateTool], 6, true);
+      await collect(runtime, reply);
+      expect(retrieval.search).not.toHaveBeenCalled();
+    }
   });
 
   it('emits a cancelled event and does not persist an answer when aborted', async () => {

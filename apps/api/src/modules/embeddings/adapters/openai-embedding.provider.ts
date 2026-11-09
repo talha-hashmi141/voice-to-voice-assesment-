@@ -7,7 +7,7 @@ const BATCH_SIZE = 96;
 export class OpenAiEmbeddingProvider implements EmbeddingProvider {
   readonly dimensions = EMBEDDING_DIMENSIONS;
   readonly model: string;
-  readonly thresholds: SimilarityThresholds = { strong: 0.5, weak: 0.36 };
+  readonly thresholds: SimilarityThresholds = { strong: 0.5, weak: 0.4 };
 
   constructor(
     private readonly client: OpenAI,

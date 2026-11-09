@@ -30,9 +30,21 @@ export interface SynthesizedAudio {
   mimeType: string;
 }
 
+export interface SynthesizedChunk {
+  data: Buffer;
+  /** "audio/pcm" with `sampleRate`, or a container type for single-chunk providers. */
+  mimeType: string;
+  sampleRate?: number;
+}
+
 export interface TtsProvider {
   readonly model: string;
   synthesize(input: SynthesizeInput): Promise<SynthesizedAudio>;
+  /**
+   * Streams speech as it is generated so playback can start before synthesis finishes.
+   * Providers without streaming omit it and the pipeline falls back to `synthesize`.
+   */
+  synthesizeStream?(input: SynthesizeInput): AsyncIterable<SynthesizedChunk>;
 }
 
 export const STT_PROVIDER = Symbol('STT_PROVIDER');

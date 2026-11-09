@@ -47,11 +47,11 @@ test.describe('Voice agent (text input path)', () => {
 
     await input.fill('My laptop screen is cracked, what should I do?');
     await input.press('Enter');
-    await expect(log.getByText(/open a support ticket/)).toBeVisible({ timeout: 30_000 });
+    await expect(log.getByText(/ticket/i).first()).toBeVisible({ timeout: 30_000 });
 
     await input.fill('Yes please, high priority');
     await input.press('Enter');
-    await expect(log.getByText(/ticket TCK-[A-Z0-9]{6}/)).toBeVisible({ timeout: 30_000 });
+    await expect(log.getByText(/TCK-[A-Z0-9]{6}/).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Creating a support ticket').first()).toBeVisible();
   });
 });

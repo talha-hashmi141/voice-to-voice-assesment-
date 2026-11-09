@@ -136,25 +136,48 @@ sequenceDiagram
 
 ## Latency design
 
-The pipeline is cascaded (STT → LLM → TTS) rather than a single speech-to-speech model, so that the agent loop, retrieval grading and citations live in this codebase where they can be tested and shown. Latency is handled by overlapping stages:
+The pipeline is cascaded (STT → LLM → TTS) rather than a single speech-to-speech model, so that the agent loop, retrieval grading and citations live in this codebase where they can be tested and shown. Latency is handled by overlapping stages and by avoiding model round-trips:
 
-| Stage          | Technique                                                                                                                                                                                                                      |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| End of speech  | Silero VAD in the browser with ~650 ms trailing silence; only the speech segment is uploaded as 16 kHz WAV.                                                                                                                    |
-| Speech-to-text | `gpt-4o-mini-transcribe` with a domain vocabulary prompt (product names, acronyms).                                                                                                                                            |
-| First token    | Non-reasoning model (`gpt-4.1-mini` by default), compact system prompt, streaming.                                                                                                                                             |
-| Tools          | All tool calls of a model step run concurrently; hybrid search runs the vector and keyword channels (for up to three phrasings) in parallel inside Postgres.                                                                   |
-| First audio    | Text is split at sentence boundaries as it streams; each sentence is synthesized immediately (two in flight) and clips are emitted strictly in order. The user hears the first sentence while the rest is still being written. |
-| Barge-in       | Real speech during playback cancels the turn through an `AbortSignal` that reaches the model call, the tools and the TTS queue.                                                                                                |
+| Stage           | Technique                                                                                                                                                                                                                                                                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| End of speech   | Silero VAD in the browser with ~650 ms trailing silence; only the speech segment is uploaded as 16 kHz WAV.                                                                                                                                                                                  |
+| Speech-to-text  | `gpt-4o-transcribe` with a domain vocabulary prompt. In our benchmark it answered in ~1.0 s versus ~1.4–2.2 s for the mini model, for +$0.003 per minute.                                                                                                                                    |
+| Eager retrieval | The user's message is searched before the first model call (~0.3 s) and the passages are injected into the prompt. Simple questions then need **one** model call instead of two.                                                                                                             |
+| First token     | Non-reasoning model (`gpt-4.1-mini` by default), compact prompt, streaming, replies capped at 400 tokens. Each model call costs ~1.0–1.5 s to first token from this network.                                                                                                                 |
+| Tools           | All tool calls of a model step run concurrently; hybrid search runs the vector and keyword channels (for up to three phrasings) in parallel inside Postgres.                                                                                                                                 |
+| First audio     | Text is split at sentence boundaries as it streams; each sentence is synthesized immediately (two in flight) and the audio is **streamed as raw PCM chunks** (first chunk after ~100 ms of audio) in strict order. The user hears the first words before the sentence finishes synthesizing. |
+| Barge-in        | Real speech during playback cancels the turn through an `AbortSignal` that reaches the model call, the tools and the TTS stream.                                                                                                                                                             |
 
-Every turn's measured `sttMs`, `firstTokenMs`, `firstAudioMs` and `totalMs` are stored with the message and shown in the UI. Expected end-to-end time to first audio with the OpenAI models is roughly 1.3–2 s without tools and 2.2–3.2 s with a tool round; mock mode completes a tool round in under 200 ms, which is handy for checking the plumbing.
+Measured on this machine with the OpenAI providers (network round-trip to OpenAI ≈ 300 ms):
+
+| Turn                                                                                      | Model calls | First token | First audio                                          | Total | Est. cost |
+| ----------------------------------------------------------------------------------------- | ----------- | ----------- | ---------------------------------------------------- | ----- | --------- |
+| "How many vacation days do new employees get, and can I carry unused days over?" (text)   | 1           | 1.4 s       | –                                                    | 1.9 s | $0.0009   |
+| December leave: holidays + balance + day count (text)                                     | 2           | 2.8 s       | –                                                    | 3.4 s | $0.0021   |
+| "Can I bring my dog?" → weak grade → reformulate → abstain (text)                         | 2           | 3.0 s       | –                                                    | 3.3 s | $0.0014   |
+| "What are the core working hours for remote employees?" (voice, 6 s utterance; STT 1.3 s) | 1           | 3.1 s       | 4.5 s (first PCM chunk 0.8 s after synthesis starts) | 6.0 s | $0.005    |
+
+Every turn's `sttMs`, `firstTokenMs`, `firstAudioMs`, `totalMs`, token counts and estimated cost are stored with the message and shown in the UI. Roughly 300–400 ms of every model, transcription and speech call above is network round-trip from this test location; a reviewer closer to OpenAI's regions will see lower numbers. Mock mode completes a tool round in under 200 ms, which is handy for checking the plumbing.
+
+## Cost
+
+Per turn with the default models (list prices, estimated by the app and shown in the UI):
+
+| Component                             | Price basis                                        | Typical turn                                       |
+| ------------------------------------- | -------------------------------------------------- | -------------------------------------------------- |
+| Chat (`gpt-4.1-mini`)                 | $0.40 / 1M input ($0.10 cached), $1.60 / 1M output | 2–5k prompt tokens, ~100 output → **$0.001–0.002** |
+| Speech-to-text (`gpt-4o-transcribe`)  | $0.006 / minute                                    | 6 s utterance → **$0.0006**                        |
+| Text-to-speech (`gpt-4o-mini-tts`)    | ≈ $0.015 / minute of speech                        | 60-word reply → **$0.004**                         |
+| Embeddings (`text-embedding-3-small`) | $0.02 / 1M tokens                                  | query ≈ $0.0000003; whole knowledge base ≈ $0.0002 |
+
+So a spoken turn costs about **half a cent** and a typed turn about a tenth of a cent; a hundred-turn demo is under a dollar. Levers that keep it low: eager retrieval (one model call instead of two), a 400-token reply cap, a 4 000-token history window, OpenAI's automatic prompt caching (the stable system prompt and tool schemas are billed at a quarter price on repeat calls), no LLM reranker by default, and mock providers in every automated test so CI never spends anything. Switch `OPENAI_CHAT_MODEL` to `gpt-4o-mini` or `gpt-4.1-nano` to cut the chat cost further at some quality loss.
 
 ## Retrieval (RAG)
 
 1. **Loading**: markdown documents with front-matter in `apps/api/knowledge-base`. Content is checksummed so unchanged documents are skipped.
 2. **Chunking**: split by headings into sections (keeping the heading path), then recursively by paragraph → sentence to ~400 tokens with sentence-level overlap; tiny sections are merged into their neighbour. Each chunk is embedded with a **contextual header** (`Document: … / Section: …`) so a sentence like "up to five days carry over" also carries "PTO policy › Carryover" semantics.
 3. **Indexing**: `text-embedding-3-small` vectors in pgvector (HNSW, cosine) and a generated `tsvector` column (GIN) in the same row.
-4. **Hybrid search**: dense and sparse channels run concurrently for one to three query phrasings supplied by the agent; results are fused with **reciprocal rank fusion** (k = 60) and returned with the fused score and both channel scores. Modes `hybrid | dense | sparse` are exposed in the API and the search playground.
+4. **Hybrid search**: the dense channel (cosine similarity) and the keyword channel run concurrently for one to three query phrasings supplied by the agent. The keyword channel takes candidates from the GIN index and ranks them with **BM25** computed over the stored lexemes (Postgres' `ts_rank` has no inverse-document-frequency term, so chunks that merely repeat a common word used to win). Results are fused with **weighted reciprocal rank fusion** (k = 60, keyword weight 0.7) and returned with the fused score and both channel scores. Modes `hybrid | dense | sparse` are exposed in the API and the search playground.
 5. **Grading**: `RetrievalEvaluator` classifies a result set as strong / weak / none using the embedding provider's calibrated similarity thresholds and whether the top passage was found by both channels. The grade is attached to the tool result and streamed to the UI.
 6. **Citations**: passages are numbered per turn; the answer's `[n]` markers are resolved to sources, renumbered in order of appearance, and stripped from the spoken text.
 7. **Async ingestion**: `POST /api/knowledge/reindex` and document uploads enqueue BullMQ jobs with progress; the seed script runs the same pipeline inline.
@@ -171,8 +194,8 @@ Even with lexical mock vectors, fusing the channels beats either alone; with rea
 
 ## The agent
 
-- **Loop**: stream a model step → if it requested tools, run them all concurrently with per-tool timeouts → append results → repeat, up to `AGENT_MAX_STEPS` (6). Failures become structured `{ ok: false, error }` payloads the model can recover from.
-- **Tools** (`apps/api/src/modules/tools/implementations`):
+- **Loop**: pre-fetch passages for the message → stream a model step → if it requested tools, run them all concurrently with per-tool timeouts → append results → repeat, up to `AGENT_MAX_STEPS` (6). Failures become structured `{ ok: false, error }` payloads the model can recover from. The pre-fetch is skipped for short confirmations ("yes please").
+- **Tools** (`apps/api/src/modules/tools/implementations`), six in total:
 
   | Tool                    | Purpose                                                                                   | Side effects       |
   | ----------------------- | ----------------------------------------------------------------------------------------- | ------------------ |
@@ -217,12 +240,12 @@ Socket.IO namespace `/voice` (typed in `packages/contracts`):
 
 ## Testing
 
-| Suite                                                   | What it covers                                                                                                                                                                                                                                                                                                                       | Command                                   |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| API unit (Jest, 60 tests)                               | chunking, RRF, retrieval grading, tool registry/executor, calculator and datetime tools, mock providers, memory windowing, citation extraction, prompt, agent loop with a scripted model (single step, concurrent tools, weak → reformulate, failure recovery, step budget, cancellation), sentence chunker, voice pipeline ordering | `pnpm --filter @voice-agent/api test`     |
-| API e2e (Jest + supertest + socket.io-client, 14 tests) | knowledge endpoints against a real Postgres, agent turns with memory and a confirmed ticket, personas, and the Socket.IO voice gateway with ordered audio clips                                                                                                                                                                      | `pnpm --filter @voice-agent/api test:e2e` |
-| Web unit (Vitest, 7 tests)                              | session store state machine, ordered audio queue, WAV encoder                                                                                                                                                                                                                                                                        | `pnpm --filter @voice-agent/web test`     |
-| Browser e2e (Playwright, 6 tests)                       | knowledge search and document viewer, agent text turns with citations and trace, multi-turn confirmed action, conversation history, theme toggle, and a **real hands-free voice turn** using Chromium's fake microphone fed with a synthesized utterance                                                                             | `pnpm --filter @voice-agent/web test:e2e` |
+| Suite                                                   | What it covers                                                                                                                                                                                                                                                                                                                                                                                       | Command                                   |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| API unit (Jest, 60 tests)                               | chunking, RRF, BM25, retrieval grading, tool registry/executor, calculator, datetime and business-day tools, mock providers, memory windowing, citation extraction, prompt, agent loop with a scripted model (single step, concurrent tools, eager retrieval, weak → reformulate, failure recovery, step budget, cancellation), sentence chunker, streamed speech scheduler ordering, voice pipeline | `pnpm --filter @voice-agent/api test`     |
+| API e2e (Jest + supertest + socket.io-client, 14 tests) | knowledge endpoints against a real Postgres, agent turns with memory and a confirmed ticket, personas, and the Socket.IO voice gateway with ordered audio clips                                                                                                                                                                                                                                      | `pnpm --filter @voice-agent/api test:e2e` |
+| Web unit (Vitest, 7 tests)                              | session store state machine, ordered audio queue, WAV encoder                                                                                                                                                                                                                                                                                                                                        | `pnpm --filter @voice-agent/web test`     |
+| Browser e2e (Playwright, 6 tests)                       | knowledge search and document viewer, agent text turns with citations and trace, multi-turn confirmed action, conversation history, theme toggle, and a **real hands-free voice turn** using Chromium's fake microphone fed with a synthesized utterance                                                                                                                                             | `pnpm --filter @voice-agent/web test:e2e` |
 
 `pnpm test` runs the unit suites; CI (`.github/workflows/ci.yml`) runs lint, typecheck, unit, API e2e and the browser suite with Postgres and Redis service containers.
 
@@ -234,6 +257,8 @@ Socket.IO namespace `/voice` (typed in `packages/contracts`):
 - **A hand-rolled agent runtime.** ~250 lines that are easy to read and test beat a framework abstraction for showing how the loop, concurrency, grading and cancellation actually work.
 - **One contract package.** Zod schemas generate the API DTOs (validation + OpenAPI) and type the web client and the socket events, so nothing is defined twice.
 - **Mock adapters as first-class citizens.** They make the entire system testable in CI without secrets and let a reviewer run the product with no API key.
+- **Eager retrieval plus retrieval-as-a-tool.** Pre-fetching passages for the raw message makes the common case one model call (half the latency and cost) while keeping the agent in charge: it reformulates on weak grades, searches again for multi-part questions, and abstains when nothing fits.
+- **Streamed PCM speech instead of per-clip MP3.** Benchmarked formats all took 1.6–2.7 s per clip when waiting for the whole file; streaming raw PCM lets playback start on the first 100 ms of audio and needs no client-side decoding.
 - **NestJS 11 rather than the ten-week-old NestJS 12**, because the Zod DTO library has not declared support for 12 yet; every other dependency is current.
 
 ## Limitations and next steps
@@ -252,5 +277,6 @@ pnpm dev                  # both apps with hot reload (starts Docker services if
 pnpm build / lint / typecheck / test
 pnpm db:seed              # (re)index the knowledge base
 pnpm eval:retrieval       # retrieval quality report
+pnpm --filter @voice-agent/api bench:speech   # STT/TTS latency micro-benchmark (costs < $0.01)
 pnpm infra:up / infra:down / infra:reset
 ```

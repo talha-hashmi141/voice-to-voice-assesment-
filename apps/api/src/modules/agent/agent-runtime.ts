@@ -13,7 +13,14 @@ import {
   MessageRepository,
   toMessage,
 } from '../conversations';
-import { LLM_PROVIDER, type LlmMessage, type LlmProvider, type LlmToolCall } from '../llm';
+import { countTokens, RetrievalEvaluator, RetrievalService } from '../knowledge';
+import {
+  estimateChatCost,
+  LLM_PROVIDER,
+  type LlmMessage,
+  type LlmProvider,
+  type LlmToolCall,
+} from '../llm';
 import { CitationRegistry, type ToolContext, ToolExecutor, ToolRegistry } from '../tools';
 import { type AgentEvent } from './agent-events';
 import { extractCitations } from './citation-extractor';
@@ -41,6 +48,21 @@ const safeParseArgs = (raw: string): Record<string, unknown> => {
   }
 };
 
+/** Confirmations and very short replies ("yes please, high priority") are not worth a retrieval round-trip. */
+const CONFIRMATION =
+  /^\s*(yes|yeah|yep|sure|ok|okay|please do|go ahead|do it|confirm|correct|that's right|no|nope)\b/iu;
+const looksLikeQuestion = (text: string): boolean =>
+  !CONFIRMATION.test(text) &&
+  text
+    .trim()
+    .split(/\s+/u)
+    .filter((word) => word.length > 2).length >= 4;
+
+const messageText = (message: LlmMessage): string =>
+  message.role === 'assistant'
+    ? `${message.content ?? ''} ${(message.toolCalls ?? []).map((call) => `${call.name} ${call.arguments}`).join(' ')}`
+    : message.content;
+
 const isAbortError = (error: unknown): boolean =>
   error instanceof Error && (error.name === 'AbortError' || /abort/iu.test(error.message));
 
@@ -62,7 +84,127 @@ export class AgentRuntime {
     private readonly messages: MessageRepository,
     private readonly conversations: ConversationRepository,
     private readonly config: AppConfigService,
+    private readonly retrieval: RetrievalService,
+    private readonly evaluator: RetrievalEvaluator,
   ) {}
+
+  /**
+   * Eager retrieval: search the knowledge base for the raw message before the first model call.
+   * Simple questions then finish in a single model round (one call and one prompt cheaper); the
+   * model can still call search_knowledge_base when the pre-fetched passages do not answer.
+   */
+  private async *prefetchPassages(
+    input: AgentRunInput,
+    context: ToolContext,
+    stopwatch: Stopwatch,
+    addStep: (
+      type: AgentStepType,
+      label: string,
+      data?: Record<string, unknown>,
+      durationMs?: number,
+    ) => AgentStep,
+  ): AsyncGenerator<AgentEvent, string | null> {
+    const callId = `${input.turnId}-prefetch`;
+    const started = stopwatch.elapsed();
+    const args = { queries: [input.userText], eager: true };
+    yield { type: 'tool_call', callId, name: 'search_knowledge_base', args };
+    addStep('tool_call', 'search_knowledge_base (pre-fetched)', {
+      callId,
+      name: 'search_knowledge_base',
+      args,
+    });
+
+    let outcome: Awaited<ReturnType<RetrievalService['search']>>;
+    try {
+      outcome = await this.retrieval.search({
+        queries: [input.userText],
+        topK: Math.min(4, this.config.agent.retrievalTopK),
+        mode: 'hybrid',
+        signal: input.signal,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const durationMs = stopwatch.elapsed() - started;
+      yield {
+        type: 'tool_result',
+        callId,
+        name: 'search_knowledge_base',
+        ok: false,
+        summary: message,
+        durationMs,
+      };
+      addStep('tool_result', `pre-fetch failed: ${message}`, { callId, ok: false }, durationMs);
+      return null;
+    }
+
+    const evaluation = this.evaluator.evaluate(outcome.hits);
+    const durationMs = stopwatch.elapsed() - started;
+    const passages = outcome.hits.map((hit) => {
+      const source = context.citations.register({
+        chunkId: hit.chunkId,
+        documentId: hit.documentId,
+        documentSlug: hit.documentSlug,
+        documentTitle: hit.documentTitle,
+        sectionPath: hit.sectionPath,
+        excerpt: truncate(hit.content, 400),
+        score: hit.scores.fused,
+      });
+      return {
+        ref: source.index,
+        document: hit.documentTitle,
+        section: hit.sectionPath,
+        text: hit.content,
+        score: hit.scores.dense,
+      };
+    });
+    const documents = [...new Set(passages.map((p) => p.document))];
+    const summary = passages.length
+      ? `${passages.length} passages (${evaluation.assessment}) from ${documents.slice(0, 3).join(', ')}`
+      : 'No passages found';
+    yield {
+      type: 'tool_result',
+      callId,
+      name: 'search_knowledge_base',
+      ok: true,
+      summary,
+      durationMs,
+      data: {
+        assessment: evaluation.assessment,
+        passages: passages.map(({ ref, document, section, score }) => ({
+          ref,
+          document,
+          section,
+          score,
+        })),
+      },
+    };
+    addStep(
+      'tool_result',
+      summary,
+      { callId, name: 'search_knowledge_base', ok: true },
+      durationMs,
+    );
+    const retrieval = {
+      assessment: evaluation.assessment,
+      topScore: evaluation.topScore,
+      hits: passages.length,
+      queries: outcome.queries,
+      reason: evaluation.reason,
+    };
+    yield { type: 'retrieval_evaluated', callId, ...retrieval };
+    addStep('retrieval_evaluated', `Retrieval ${retrieval.assessment}: ${retrieval.reason}`, {
+      callId,
+      ...retrieval,
+    });
+
+    if (evaluation.assessment === 'none' || !passages.length) {
+      return 'Pre-fetched knowledge-base search for the latest message found nothing relevant. If the question is about company policies or processes, call search_knowledge_base with different, more specific phrasing before answering; otherwise answer from the conversation and tools.';
+    }
+    const block = passages
+      .map((p) => `[${p.ref}] ${p.document} › ${p.section}\n${p.text}`)
+      .join('\n\n');
+    return `Pre-fetched knowledge-base passages for the latest message (relevance: ${evaluation.assessment}). Cite them with their [ref] numbers if you use them; call search_knowledge_base if they do not answer the question.\n\n${block}`;
+  }
 
   async *run(input: AgentRunInput): AsyncGenerator<AgentEvent> {
     const { signal } = input;
@@ -89,6 +231,7 @@ export class AgentRuntime {
     };
 
     const metrics = { firstTokenMs: null as number | null, llmCalls: 0, toolCalls: 0 };
+    const usage = { promptTokens: 0, cachedPromptTokens: 0, completionTokens: 0, reported: false };
     const citations = new CitationRegistry();
     const context: ToolContext = {
       turnId: input.turnId,
@@ -114,8 +257,12 @@ export class AgentRuntime {
         content: this.prompts.buildSystemPrompt({ userContext: input.userContext, summary }),
       },
       ...history,
-      { role: 'user', content: input.userText },
     ];
+    if (this.config.agent.eagerRetrieval && looksLikeQuestion(input.userText)) {
+      const prefetch = yield* this.prefetchPassages(input, context, stopwatch, addStep);
+      if (prefetch) messages.push({ role: 'system', content: prefetch });
+    }
+    messages.push({ role: 'user', content: input.userText });
     const toolDefinitions = this.tools.toLlmDefinitions();
 
     let text = '';
@@ -142,8 +289,14 @@ export class AgentRuntime {
           messages,
           tools: toolDefinitions,
           signal,
+          maxTokens: this.config.agent.maxOutputTokens,
         })) {
-          if (event.type === 'text_delta') {
+          if (event.type === 'done' && event.usage) {
+            usage.reported = true;
+            usage.promptTokens += event.usage.promptTokens;
+            usage.cachedPromptTokens += event.usage.cachedPromptTokens ?? 0;
+            usage.completionTokens += event.usage.completionTokens;
+          } else if (event.type === 'text_delta') {
             if (metrics.firstTokenMs === null) metrics.firstTokenMs = stopwatch.elapsed();
             text += event.delta;
             yield { type: 'text_delta', delta: event.delta };
@@ -243,6 +396,16 @@ export class AgentRuntime {
         : 'Answered',
     );
 
+    // When the provider reported no usage (e.g. the stream was interrupted before its usage frame),
+    // estimate it locally so the cost stays visible; it is labelled an estimate in the UI anyway.
+    if (!usage.reported && metrics.llmCalls > 0) {
+      usage.promptTokens = messages.reduce(
+        (sum, message) => sum + countTokens(messageText(message)) + 4,
+        0,
+      );
+      usage.completionTokens = countTokens(answer);
+      usage.reported = true;
+    }
     const fullMetrics: TurnMetrics = {
       sttMs: null,
       firstTokenMs: metrics.firstTokenMs,
@@ -251,6 +414,10 @@ export class AgentRuntime {
       totalMs: stopwatch.elapsed(),
       llmCalls: metrics.llmCalls,
       toolCalls: metrics.toolCalls,
+      promptTokens: usage.promptTokens,
+      cachedPromptTokens: usage.cachedPromptTokens,
+      completionTokens: usage.completionTokens,
+      estimatedCostUsd: estimateChatCost(this.llm.model, usage),
     };
     const assistantRow = await this.messages.append({
       conversationId: input.conversationId,

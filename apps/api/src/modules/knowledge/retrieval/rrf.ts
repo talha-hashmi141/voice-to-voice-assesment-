@@ -10,6 +10,8 @@ export interface RankedList {
   channel: RetrievalChannel;
   /** Items ordered best-first. */
   items: RankedItem[];
+  /** Relative influence of this list (default 1). */
+  weight?: number;
 }
 
 export interface FusedResult {
@@ -41,14 +43,14 @@ export function reciprocalRankFusion(lists: RankedList[], k = DEFAULT_RRF_K): Fu
         appearances: 0,
         raw: 0,
       };
-      entry.raw += 1 / (k + index + 1);
+      entry.raw += (list.weight ?? 1) / (k + index + 1);
       entry.appearances += 1;
       if (list.channel === 'dense') entry.dense = Math.max(entry.dense ?? -Infinity, item.score);
       else entry.sparse = Math.max(entry.sparse ?? -Infinity, item.score);
       table.set(item.id, entry);
     });
   }
-  const maxPossible = lists.length / (k + 1) || 1;
+  const maxPossible = lists.reduce((sum, list) => sum + (list.weight ?? 1), 0) / (k + 1) || 1;
   return Array.from(table.values())
     .map(({ raw, ...rest }) => ({ ...rest, fused: Number((raw / maxPossible).toFixed(6)) }))
     .sort(

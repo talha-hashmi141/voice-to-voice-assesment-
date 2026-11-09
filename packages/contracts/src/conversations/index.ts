@@ -26,6 +26,11 @@ export const TurnMetricsSchema = z.object({
   totalMs: z.number(),
   llmCalls: z.number().int(),
   toolCalls: z.number().int(),
+  promptTokens: z.number().int().nullable().default(null),
+  cachedPromptTokens: z.number().int().nullable().default(null),
+  completionTokens: z.number().int().nullable().default(null),
+  /** Rough USD estimate from list prices (model tokens + minutes of audio); null in mock mode. */
+  estimatedCostUsd: z.number().nullable().default(null),
 });
 export type TurnMetrics = z.infer<typeof TurnMetricsSchema>;
 

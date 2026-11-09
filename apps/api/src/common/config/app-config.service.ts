@@ -73,7 +73,10 @@ export class AppConfigService {
   get agent() {
     return {
       maxSteps: this.config.get('AGENT_MAX_STEPS', { infer: true }),
+      maxOutputTokens: this.config.get('AGENT_MAX_OUTPUT_TOKENS', { infer: true }),
+      eagerRetrieval: this.config.get('AGENT_EAGER_RETRIEVAL', { infer: true }),
       retrievalTopK: this.config.get('RETRIEVAL_TOP_K', { infer: true }),
+      sparseWeight: this.config.get('RETRIEVAL_SPARSE_WEIGHT', { infer: true }),
       rerankEnabled: this.config.get('RERANK_ENABLED', { infer: true }),
     };
   }

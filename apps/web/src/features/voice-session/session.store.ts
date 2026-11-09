@@ -103,6 +103,7 @@ const elapsed = (state: SessionState) =>
 const TOOL_LABELS: Record<string, string> = {
   search_knowledge_base: 'Searching the knowledge base',
   get_current_datetime: 'Checking the date and time',
+  count_business_days: 'Counting working days',
   calculate: 'Calculating',
   get_leave_balance: 'Looking up leave balance',
   create_support_ticket: 'Creating a support ticket',

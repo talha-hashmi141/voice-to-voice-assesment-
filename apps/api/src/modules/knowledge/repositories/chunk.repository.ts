@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, cosineDistance, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, cosineDistance, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { DATABASE, type Database, chunks, documents, type NewChunkRow } from '../../../common';
 import { type DenseHit, type RetrievedChunk, type SparseHit } from '../entities';
+import { type Bm25Stats, rankBm25, toBm25Document } from '../retrieval/bm25';
 
 const joinedColumns = {
   chunkId: chunks.id,
@@ -14,21 +15,13 @@ const joinedColumns = {
   tokenCount: chunks.tokenCount,
 };
 
-/** Builds an OR'ed English tsquery from free text so partial keyword overlap still matches. */
-export function buildOrTsQuery(query: string): string | null {
-  const terms = Array.from(
-    new Set(
-      query
-        .toLowerCase()
-        .split(/[^a-z0-9]+/u)
-        .filter((term) => term.length > 1),
-    ),
-  );
-  return terms.length ? terms.map((term) => `${term}:*`).join(' | ') : null;
-}
+const SPARSE_CANDIDATE_LIMIT = 500;
+const STATS_TTL_MS = 60_000;
 
 @Injectable()
 export class ChunkRepository {
+  private statsCache: { stats: Bm25Stats; at: number } | null = null;
+
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   /** Atomically replaces a document's chunks (delete + insert in one transaction). */
@@ -75,20 +68,68 @@ export class ChunkRepository {
     return rows.map(({ distance: d, ...row }) => ({ ...row, similarity: 1 - Number(d) }));
   }
 
-  /** Full-text search via the generated tsvector column (GIN index), ranked with ts_rank_cd. */
+  /**
+   * Keyword search: candidates come from the GIN-indexed tsvector match on the query's lexemes;
+   * ranking is BM25 (IDF + length normalisation) computed over the stored lexeme positions,
+   * because Postgres' ts_rank has no notion of term rarity.
+   */
   async searchSparse(query: string, limit: number): Promise<SparseHit[]> {
-    const tsQuery = buildOrTsQuery(query);
-    if (!tsQuery) return [];
-    const matcher = sql`to_tsquery('english', ${tsQuery})`;
-    const rank = sql<number>`ts_rank_cd(${chunks.tsv}, ${matcher}, 32)`;
-    const rows = await this.db
-      .select({ ...joinedColumns, rank })
-      .from(chunks)
-      .innerJoin(documents, eq(chunks.documentId, documents.id))
-      .where(and(sql`${chunks.tsv} @@ ${matcher}`))
-      .orderBy(desc(rank))
-      .limit(limit);
-    return rows.map((row) => ({ ...row, rank: Number(row.rank) }));
+    const lexemes = await this.queryLexemes(query);
+    if (!lexemes.length) return [];
+    const matcher = sql`to_tsquery('simple', ${lexemes.map((lexeme) => `'${lexeme.replace(/'/gu, "''")}'`).join(' | ')})`;
+    const [candidates, stats] = await Promise.all([
+      this.db
+        .select({ ...joinedColumns, tsv: sql<string>`${chunks.tsv}::text` })
+        .from(chunks)
+        .innerJoin(documents, eq(chunks.documentId, documents.id))
+        .where(sql`${chunks.tsv} @@ ${matcher}`)
+        .limit(SPARSE_CANDIDATE_LIMIT),
+      this.lexemeStats(),
+    ]);
+    const ranked = rankBm25(
+      lexemes,
+      candidates.map((row) => toBm25Document(row.chunkId, row.tsv)),
+      stats,
+    ).slice(0, limit);
+    const byId = new Map(candidates.map((row) => [row.chunkId, row]));
+    return ranked.flatMap(({ id, score }) => {
+      const { tsv: _tsv, ...row } = byId.get(id)!;
+      return [{ ...row, rank: score }];
+    });
+  }
+
+  /** Lexemes of a free-text query under the same English configuration used for the index. */
+  private async queryLexemes(query: string): Promise<string[]> {
+    const [row] = await this.db.execute<{ tsv: string }>(
+      sql`select to_tsvector('english', ${query})::text as tsv`,
+    );
+    if (!row) return [];
+    return Array.from(toBm25Document('q', row.tsv).termFrequencies.keys());
+  }
+
+  /** Corpus statistics for BM25 (document frequency per lexeme); cached until the index changes. */
+  private async lexemeStats(): Promise<Bm25Stats> {
+    const cached = this.statsCache;
+    if (cached && Date.now() - cached.at < STATS_TTL_MS) return cached.stats;
+    const [rows, [totals]] = await Promise.all([
+      this.db.execute<{ word: string; ndoc: number }>(
+        sql`select word, ndoc from ts_stat('select tsv from chunks')`,
+      ),
+      this.db.execute<{ total: number; avg: number }>(
+        sql`select count(*)::int as total, coalesce(avg(length(tsv)), 0)::float as avg from chunks`,
+      ),
+    ]);
+    const stats: Bm25Stats = {
+      totalDocuments: Number(totals?.total ?? 0),
+      averageLength: Number(totals?.avg ?? 0),
+      documentFrequency: new Map(rows.map((row) => [row.word, Number(row.ndoc)])),
+    };
+    this.statsCache = { stats, at: Date.now() };
+    return stats;
+  }
+
+  invalidateStats(): void {
+    this.statsCache = null;
   }
 
   /** Adjacent chunks of the same section, used for small-to-big context expansion. */

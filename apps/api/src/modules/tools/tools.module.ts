@@ -4,6 +4,7 @@ import { KnowledgeModule } from '../knowledge';
 import {
   CalculateTool,
   CLOCK,
+  CountBusinessDaysTool,
   CreateSupportTicketTool,
   GetCurrentDateTimeTool,
   GetLeaveBalanceTool,
@@ -17,6 +18,7 @@ import { ToolRegistry } from './tool.registry';
 const TOOL_CLASSES = [
   SearchKnowledgeBaseTool,
   GetCurrentDateTimeTool,
+  CountBusinessDaysTool,
   CalculateTool,
   GetLeaveBalanceTool,
   CreateSupportTicketTool,

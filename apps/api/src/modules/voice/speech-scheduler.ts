@@ -1,6 +1,6 @@
 import { stripForSpeech } from '../agent';
-import { type SynthesizedAudio, type TtsProvider } from '../speech';
-import { type AsyncQueue } from './async-queue';
+import { type SynthesizedChunk, type TtsProvider } from '../speech';
+import { AsyncQueue } from './async-queue';
 import { type VoiceEvent } from './voice-events';
 
 export interface SpeechSchedulerOptions {
@@ -13,8 +13,9 @@ export interface SpeechSchedulerOptions {
 
 /**
  * Pipelines text-to-speech: every sentence starts synthesising as soon as it is complete
- * (bounded concurrency), while clips are emitted strictly in sentence order so the client
- * can play them back to back. Sentence N+1 is synthesised while sentence N is playing.
+ * (bounded concurrency) and, when the provider streams, its audio chunks are forwarded while
+ * they are still being generated. Chunks are emitted strictly in sentence order: sentence N+1
+ * is synthesised (and buffered) while sentence N is still being delivered.
  */
 export class SpeechScheduler {
   private seq = 0;
@@ -22,8 +23,10 @@ export class SpeechScheduler {
   private readonly waiting: (() => void)[] = [];
   private chain: Promise<void> = Promise.resolve();
   private cancelled = false;
-  /** Latency of the first synthesis call (ms), reported as `ttsMs`. */
+  /** Time from the first synthesis request to its first audio chunk (ms), reported as `ttsMs`. */
   firstSynthesisMs: number | null = null;
+  /** Words sent to TTS, used for the cost estimate. */
+  spokenWords = 0;
 
   constructor(
     private readonly tts: TtsProvider,
@@ -36,19 +39,49 @@ export class SpeechScheduler {
     if (!spoken || this.cancelled) return;
     const seq = this.seq;
     this.seq += 1;
-    const job = this.withSlot(() => this.synthesize(spoken));
-    this.chain = this.chain.then(async () => {
+    this.spokenWords += spoken.split(/\s+/u).filter(Boolean).length;
+
+    // Producer: synthesise now (subject to the concurrency limit) into a per-sentence buffer.
+    const chunks = new AsyncQueue<SynthesizedChunk>();
+    void this.withSlot(async () => {
+      const started = performance.now();
       try {
-        const audio = await job;
+        for await (const chunk of this.synthesize(spoken)) {
+          if (this.firstSynthesisMs === null)
+            this.firstSynthesisMs = Math.round(performance.now() - started);
+          chunks.push(chunk);
+        }
+        chunks.close();
+      } catch (error) {
+        chunks.fail(error);
+      }
+    });
+
+    // Consumer: deliver this sentence's chunks only after every earlier sentence finished.
+    this.chain = this.chain.then(async () => {
+      let part = 0;
+      let previous: SynthesizedChunk | null = null;
+      const emit = (chunk: SynthesizedChunk, final: boolean) => {
         if (this.cancelled) return;
-        if (seq === 0) this.options.onFirstAudio?.();
+        if (seq === 0 && part === 0) this.options.onFirstAudio?.();
         this.queue.push({
           type: 'audio',
           seq,
-          mimeType: audio.mimeType,
-          data: audio.data,
+          part,
+          final,
+          mimeType: chunk.mimeType,
+          sampleRate: chunk.sampleRate,
+          data: chunk.data,
           text: spoken,
         });
+        part += 1;
+      };
+      try {
+        for await (const chunk of chunks) {
+          if (previous) emit(previous, false);
+          previous = chunk;
+        }
+        if (previous) emit(previous, true);
       } catch (error) {
         if (this.cancelled || this.options.signal.aborted) return;
         this.queue.push({
@@ -74,17 +107,19 @@ export class SpeechScheduler {
     return this.seq;
   }
 
-  private async synthesize(text: string): Promise<SynthesizedAudio> {
-    const started = performance.now();
-    const audio = await this.tts.synthesize({
+  private synthesize(text: string): AsyncIterable<SynthesizedChunk> {
+    const input = {
       text,
       voice: this.options.voice,
       instructions: this.options.instructions,
       signal: this.options.signal,
-    });
-    if (this.firstSynthesisMs === null)
-      this.firstSynthesisMs = Math.round(performance.now() - started);
-    return audio;
+    };
+    if (this.tts.synthesizeStream) return this.tts.synthesizeStream(input);
+    const single = this.tts.synthesize(input);
+    return (async function* () {
+      const audio = await single;
+      yield { data: audio.data, mimeType: audio.mimeType };
+    })();
   }
 
   private async withSlot<T>(task: () => Promise<T>): Promise<T> {

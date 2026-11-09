@@ -8,7 +8,16 @@ export type VoiceEvent =
       AgentEvent,
       { type: 'text_delta' | 'tool_call' | 'tool_result' | 'retrieval_evaluated' }
     >
-  | { type: 'audio'; seq: number; mimeType: string; data: Buffer; text: string }
+  | {
+      type: 'audio';
+      seq: number;
+      part: number;
+      final: boolean;
+      mimeType: string;
+      sampleRate?: number;
+      data: Buffer;
+      text: string;
+    }
   | { type: 'completed'; result: AgentTurnResult }
   | { type: 'cancelled' }
   | { type: 'error'; code: string; message: string; fatal: boolean };

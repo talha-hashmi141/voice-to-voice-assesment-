@@ -41,6 +41,23 @@ export function LatencyBadges({
           <TooltipContent>{item.hint}</TooltipContent>
         </Tooltip>
       ))}
+      {metrics?.estimatedCostUsd !== null && metrics?.estimatedCostUsd !== undefined ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span className="inline-flex items-center gap-1 rounded-md border bg-card px-1.5 py-0.5 tabular-nums">
+                <span className="text-muted-foreground">cost</span>
+                <span className="font-medium">≈ ${metrics.estimatedCostUsd.toFixed(4)}</span>
+              </span>
+            }
+          />
+          <TooltipContent>
+            Estimated from list prices: {metrics.promptTokens ?? 0} prompt tokens (
+            {metrics.cachedPromptTokens ?? 0} cached), {metrics.completionTokens ?? 0} completion
+            tokens, plus audio minutes.
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
       {metrics ? (
         <span className="text-muted-foreground">
           · {metrics.llmCalls} model call{metrics.llmCalls === 1 ? '' : 's'}, {metrics.toolCalls}{' '}

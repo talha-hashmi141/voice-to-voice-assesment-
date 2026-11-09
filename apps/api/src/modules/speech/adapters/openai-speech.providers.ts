@@ -3,6 +3,7 @@ import { toFile } from 'openai';
 import {
   type SttProvider,
   type SynthesizedAudio,
+  type SynthesizedChunk,
   type SynthesizeInput,
   type TranscribeInput,
   type Transcript,
@@ -55,6 +56,12 @@ export class OpenAiSttProvider implements SttProvider {
 }
 
 const INSTRUCTABLE_TTS = /^gpt-/u;
+/** OpenAI's PCM output: 24 kHz, 16-bit, little-endian, mono. */
+export const OPENAI_PCM_SAMPLE_RATE = 24_000;
+const BYTES_PER_SAMPLE = 2;
+/** First chunk after ~100 ms of audio (fast start), later chunks every ~200 ms. */
+const FIRST_CHUNK_BYTES = (OPENAI_PCM_SAMPLE_RATE * BYTES_PER_SAMPLE) / 10;
+const CHUNK_BYTES = (OPENAI_PCM_SAMPLE_RATE * BYTES_PER_SAMPLE) / 5;
 
 export class OpenAiTtsProvider implements TtsProvider {
   readonly model: string;
@@ -67,20 +74,60 @@ export class OpenAiTtsProvider implements TtsProvider {
     this.model = `openai:${modelName}`;
   }
 
-  async synthesize(input: SynthesizeInput): Promise<SynthesizedAudio> {
-    const modelName = this.model.slice('openai:'.length);
-    const response = await this.client.audio.speech.create(
+  private get modelName(): string {
+    return this.model.slice('openai:'.length);
+  }
+
+  private request(input: SynthesizeInput, format: 'mp3' | 'pcm') {
+    return this.client.audio.speech.create(
       {
-        model: modelName,
+        model: this.modelName,
         voice: (input.voice ?? this.defaultVoice) as 'alloy',
         input: input.text,
-        response_format: 'mp3',
-        ...(input.instructions && INSTRUCTABLE_TTS.test(modelName)
+        response_format: format,
+        ...(input.instructions && INSTRUCTABLE_TTS.test(this.modelName)
           ? { instructions: input.instructions }
           : {}),
       },
       { signal: input.signal },
     );
+  }
+
+  async synthesize(input: SynthesizeInput): Promise<SynthesizedAudio> {
+    const response = await this.request(input, 'mp3');
     return { data: Buffer.from(await response.arrayBuffer()), mimeType: 'audio/mpeg' };
+  }
+
+  /** Streams raw PCM as OpenAI generates it; chunks are cut on sample boundaries. */
+  async *synthesizeStream(input: SynthesizeInput): AsyncIterable<SynthesizedChunk> {
+    const response = await this.request(input, 'pcm');
+    if (!response.body) {
+      yield {
+        data: Buffer.from(await response.arrayBuffer()),
+        mimeType: 'audio/pcm',
+        sampleRate: OPENAI_PCM_SAMPLE_RATE,
+      };
+      return;
+    }
+    let pending = Buffer.alloc(0);
+    let emitted = 0;
+    for await (const piece of response.body as AsyncIterable<Uint8Array>) {
+      pending = pending.length ? Buffer.concat([pending, Buffer.from(piece)]) : Buffer.from(piece);
+      const threshold = emitted === 0 ? FIRST_CHUNK_BYTES : CHUNK_BYTES;
+      while (pending.length >= threshold) {
+        const cut = pending.length - (pending.length % BYTES_PER_SAMPLE);
+        const take = Math.min(cut, Math.max(threshold, cut - (cut % threshold)));
+        yield {
+          data: pending.subarray(0, take),
+          mimeType: 'audio/pcm',
+          sampleRate: OPENAI_PCM_SAMPLE_RATE,
+        };
+        pending = pending.subarray(take);
+        emitted += 1;
+      }
+    }
+    const rest = pending.subarray(0, pending.length - (pending.length % BYTES_PER_SAMPLE));
+    if (rest.length)
+      yield { data: rest, mimeType: 'audio/pcm', sampleRate: OPENAI_PCM_SAMPLE_RATE };
   }
 }

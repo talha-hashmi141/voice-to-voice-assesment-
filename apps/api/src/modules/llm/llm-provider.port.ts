@@ -25,6 +25,8 @@ export type LlmFinishReason = 'stop' | 'tool_calls' | 'length' | 'other';
 export interface LlmUsage {
   promptTokens: number;
   completionTokens: number;
+  /** Prompt tokens served from OpenAI's automatic prompt cache (billed at a discount). */
+  cachedPromptTokens?: number;
 }
 
 export type LlmStreamEvent =

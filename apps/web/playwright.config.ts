@@ -35,7 +35,7 @@ export default defineConfig({
           args: [
             '--use-fake-device-for-media-stream',
             '--use-fake-ui-for-media-stream',
-            `--use-file-for-fake-audio-capture=${FAKE_MIC_WAV}`,
+            `--use-file-for-fake-audio-capture=${FAKE_MIC_WAV}%noloop`,
             '--autoplay-policy=no-user-gesture-required',
           ],
         },

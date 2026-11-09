@@ -19,6 +19,10 @@ const result = (): AgentTurnResult => ({
     totalMs: 40,
     llmCalls: 1,
     toolCalls: 0,
+    promptTokens: null,
+    cachedPromptTokens: null,
+    completionTokens: null,
+    estimatedCostUsd: null,
   },
   userMessage: {
     id: 'u',
@@ -105,7 +109,10 @@ describe('VoiceTurnPipeline', () => {
       { type: 'audio' }
     >[];
     // short sentences are merged with their neighbour to avoid choppy speech
-    expect(audio.map((a) => a.seq)).toEqual([0, 1]);
+    expect(audio.map((a) => [a.seq, a.part, a.final])).toEqual([
+      [0, 0, true],
+      [1, 0, true],
+    ]);
     expect(audio.map((a) => a.text)).toEqual([
       'Twenty days a year.',
       'Five carry over! That is all.',

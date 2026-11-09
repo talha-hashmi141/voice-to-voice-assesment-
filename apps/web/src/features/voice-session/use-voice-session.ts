@@ -94,7 +94,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}) {
       onToolCall: (payload) => actions.toolCalled(payload),
       onToolResult: (payload) => actions.toolResult(payload),
       onRetrievalEvaluated: (payload) => actions.retrievalEvaluated(payload),
-      onAudio: ({ seq, data, mimeType }) => {
+      onAudio: ({ data, mimeType, sampleRate }) => {
         const bytes =
           data instanceof ArrayBuffer
             ? data
@@ -102,11 +102,15 @@ export function useVoiceSession(options: UseVoiceSessionOptions = {}) {
                 data.byteOffset,
                 data.byteOffset + data.byteLength,
               ) as ArrayBuffer);
-        queue.enqueue(seq, bytes, mimeType);
+        queue.enqueue(bytes, { mimeType, sampleRate });
       },
       onTurnCompleted: ({ turnId, userMessage, assistantMessage }) =>
         actions.turnCompleted(turnId, userMessage, assistantMessage),
-      onTurnError: ({ turnId, code, message }) => {
+      onTurnError: ({ turnId, code, message, fatal }) => {
+        if (fatal === false) {
+          toast.warning(message);
+          return;
+        }
         if (code === 'CANCELLED') queue.stop();
         else toast.error(message);
         actions.turnFailed(turnId, code, message);

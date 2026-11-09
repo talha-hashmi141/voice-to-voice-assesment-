@@ -100,9 +100,18 @@ describe('Voice gateway (e2e, Socket.IO)', () => {
 
     const audio = events
       .filter((e) => e.event === ServerEvents.AgentAudio)
-      .map((e) => e.payload as { seq: number; mimeType: string; data: ArrayBuffer | Buffer });
+      .map(
+        (e) =>
+          e.payload as {
+            seq: number;
+            mimeType: string;
+            data: ArrayBuffer | Buffer;
+            final: boolean;
+          },
+      );
     expect(audio.length).toBeGreaterThan(0);
     expect(audio.map((a) => a.seq)).toEqual(audio.map((_, i) => i));
+    expect(audio.every((a) => a.final)).toBe(true);
     expect(audio[0]?.mimeType).toBe('audio/wav');
     expect(
       Buffer.from(audio[0]!.data as ArrayBuffer)

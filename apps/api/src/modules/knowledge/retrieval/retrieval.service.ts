@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type RetrievalMode, type SearchHit } from '@voice-agent/contracts';
-import { normaliseWhitespace } from '../../../common';
+import { AppConfigService, normaliseWhitespace } from '../../../common';
 import { EMBEDDING_PROVIDER, type EmbeddingProvider } from '../../embeddings';
 import { type RetrievedChunk } from '../entities';
 import { ChunkRepository } from '../repositories';
@@ -37,6 +37,7 @@ export class RetrievalService {
     private readonly chunks: ChunkRepository,
     @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
     @Inject(RERANKER) private readonly reranker: Reranker,
+    private readonly config: AppConfigService,
   ) {}
 
   async search(options: SearchOptions): Promise<SearchOutcome> {
@@ -73,6 +74,7 @@ export class RetrievalService {
           const max = rows[0]?.rank || 1;
           return {
             channel: 'sparse',
+            weight: this.config.agent.sparseWeight,
             items: rows.map((row) => ({ id: row.chunkId, score: row.rank / max })),
           };
         })

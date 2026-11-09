@@ -16,7 +16,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node -r @swc-node/register scripts/migrate.ts",
     "db:seed": "node -r @swc-node/register scripts/seed-knowledge.ts",
-    "eval:retrieval": "node -r @swc-node/register scripts/eval-retrieval.ts"
+    "eval:retrieval": "node -r @swc-node/register scripts/eval-retrieval.ts",
+    "bench:speech": "node -r @swc-node/register scripts/bench-speech.ts"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.3",
