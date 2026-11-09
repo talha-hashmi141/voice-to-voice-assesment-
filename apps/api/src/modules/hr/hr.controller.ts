@@ -1,7 +1,13 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Patch } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
-import { LeaveBalanceDto, TicketListResponseDto } from './hr.dto';
+import {
+  EmployeeListResponseDto,
+  LeaveBalanceDto,
+  SupportTicketDto,
+  TicketListResponseDto,
+  UpdateTicketStatusRequestDto,
+} from './hr.dto';
 import { HrService } from './hr.service';
 import { TicketRepository } from './ticket.repository';
 
@@ -12,6 +18,14 @@ export class HrController {
     private readonly hr: HrService,
     private readonly tickets: TicketRepository,
   ) {}
+
+  @Get('employees')
+  @ApiOperation({ summary: 'Demo employees with their leave balances (mock external HR system)' })
+  @ApiOkResponse({ type: EmployeeListResponseDto })
+  @ZodSerializerDto(EmployeeListResponseDto)
+  async listEmployees(): Promise<EmployeeListResponseDto> {
+    return { employees: await this.hr.listLeaveBalances() };
+  }
 
   @Get('employees/:employeeId/leave-balance')
   @ApiOperation({ summary: 'Leave balance from the (mock) external HR system' })
@@ -27,5 +41,18 @@ export class HrController {
   @ZodSerializerDto(TicketListResponseDto)
   async listTickets(): Promise<TicketListResponseDto> {
     return { tickets: await this.tickets.findRecent() };
+  }
+
+  @Patch('tickets/:id/status')
+  @ApiOperation({ summary: 'Move a ticket between open, in progress and resolved' })
+  @ApiOkResponse({ type: SupportTicketDto })
+  @ZodSerializerDto(SupportTicketDto)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() body: UpdateTicketStatusRequestDto,
+  ): Promise<SupportTicketDto> {
+    const ticket = await this.tickets.updateStatus(id, body.status);
+    if (!ticket) throw new NotFoundException(`Ticket ${id} not found`);
+    return ticket;
   }
 }

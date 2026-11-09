@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdSchema, IsoDateTimeSchema } from '../common';
 import { TicketPrioritySchema } from '../hr';
 
 export const ToolNameSchema = z.enum([
@@ -91,3 +92,45 @@ export const TOOL_ARG_SCHEMAS = {
   get_leave_balance: GetLeaveBalanceArgsSchema,
   create_support_ticket: CreateSupportTicketArgsSchema,
 } as const satisfies Record<ToolName, z.ZodType>;
+
+/** Catalogue entry describing a tool the agent can call (for the Tools dashboard and docs). */
+export const ToolDefinitionSchema = z.object({
+  name: ToolNameSchema,
+  description: z.string(),
+  /** Whether the tool has side effects (creates or changes records). */
+  mutating: z.boolean(),
+  timeoutMs: z.number().int(),
+  /** JSON Schema of the arguments, as given to the model. */
+  parameters: z.record(z.string(), z.unknown()),
+});
+export type ToolDefinition = z.infer<typeof ToolDefinitionSchema>;
+
+export const ToolListResponseSchema = z.object({
+  tools: z.array(ToolDefinitionSchema),
+});
+export type ToolListResponse = z.infer<typeof ToolListResponseSchema>;
+
+export const ToolUsageSchema = z.object({
+  name: z.string(),
+  calls: z.number().int(),
+  failures: z.number().int(),
+  avgDurationMs: z.number().nullable(),
+});
+export type ToolUsage = z.infer<typeof ToolUsageSchema>;
+
+export const ToolInvocationSchema = z.object({
+  conversationId: IdSchema,
+  messageId: IdSchema,
+  name: z.string(),
+  label: z.string(),
+  ok: z.boolean().nullable(),
+  durationMs: z.number().nullable(),
+  at: IsoDateTimeSchema,
+});
+export type ToolInvocation = z.infer<typeof ToolInvocationSchema>;
+
+export const ToolUsageResponseSchema = z.object({
+  usage: z.array(ToolUsageSchema),
+  recent: z.array(ToolInvocationSchema),
+});
+export type ToolUsageResponse = z.infer<typeof ToolUsageResponseSchema>;

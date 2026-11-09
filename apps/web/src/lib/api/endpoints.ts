@@ -3,19 +3,24 @@ import type {
   ConversationListResponse,
   DocumentDetail,
   DocumentListResponse,
+  EmployeeListResponse,
   HealthStatus,
   IngestionJobListResponse,
   LeaveBalance,
   ReindexResponse,
   SearchRequest,
   SearchResponse,
+  SupportTicket,
   TicketListResponse,
+  TicketStatus,
+  ToolListResponse,
+  ToolUsageResponse,
   TurnRequest,
   TurnResponse,
   UploadDocumentRequest,
   UploadDocumentResponse,
 } from '@voice-agent/contracts';
-import { api } from '../api-client';
+import { api, apiRequest } from '../api-client';
 
 /** Thin, typed functions for every REST endpoint; components never build URLs themselves. */
 export const healthApi = {
@@ -45,7 +50,15 @@ export const agentApi = {
 };
 
 export const hrApi = {
+  employees: () => api.get<EmployeeListResponse>('/hr/employees'),
   leaveBalance: (employeeId: string) =>
     api.get<LeaveBalance>(`/hr/employees/${employeeId}/leave-balance`),
   tickets: () => api.get<TicketListResponse>('/hr/tickets'),
+  updateTicketStatus: (id: string, status: TicketStatus) =>
+    apiRequest<SupportTicket>(`/hr/tickets/${id}/status`, { method: 'PATCH', body: { status } }),
+};
+
+export const toolsApi = {
+  list: () => api.get<ToolListResponse>('/tools'),
+  usage: () => api.get<ToolUsageResponse>('/tools/usage'),
 };

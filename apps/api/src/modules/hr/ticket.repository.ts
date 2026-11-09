@@ -39,6 +39,15 @@ export class TicketRepository {
     return rows.map(toTicket);
   }
 
+  async updateStatus(id: string, status: SupportTicket['status']): Promise<SupportTicket | null> {
+    const [row] = await this.db
+      .update(supportTickets)
+      .set({ status })
+      .where(eq(supportTickets.id, id))
+      .returning();
+    return row ? toTicket(row) : null;
+  }
+
   async findByReference(reference: string): Promise<SupportTicket | null> {
     const [row] = await this.db
       .select()

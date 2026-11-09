@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Orbital Voice Agent · Testing Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="doc.css" />
+</head>
+<body>
+
+<section class="cover">
+  <div>
+    <div class="kicker">Hands-on guide</div>
+    <h1>Testing the Orbital Voice Agent</h1>
+    <p class="lead">What to set up, what to say, which tool each phrase triggers, and where to look to confirm that every feature works: the six assessment scenarios, every tool, every page, and the automated suites.</p>
+  </div>
+  <dl class="meta">
+    <div><dt>Audience</dt><dd>Anyone demonstrating or reviewing the application</dd></div>
+    <div><dt>Time needed</dt><dd>About 20 minutes for the full walkthrough</dd></div>
+    <div><dt>Cost</dt><dd>Roughly $0.005 per spoken turn, $0.001 per typed turn (OpenAI mode)</dd></div>
+    <div><dt>Document date</dt><dd>10 November 2026</dd></div>
+  </dl>
+</section>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li>Before you start</li>
+    <li>Two modes: OpenAI and mock</li>
+    <li>The screen, explained</li>
+    <li>Voice flows</li>
+    <li>The six assessment scenarios</li>
+    <li>Tool-by-tool checks</li>
+    <li>Tools & tickets page</li>
+    <li>Knowledge base page</li>
+    <li>Conversations page</li>
+    <li>API and Swagger checks</li>
+    <li>Automated tests</li>
+    <li>Troubleshooting</li>
+  </ol>
+</nav>
+
+<h2>1. Before you start</h2>
+<div class="step"><div class="n">1</div><div><strong>Docker Desktop is running.</strong> The API needs Postgres (host port 5434) and Redis (6379); <code>pnpm bootstrap</code> starts both and <code>pnpm dev</code> checks them.</div></div>
+<div class="step"><div class="n">2</div><div><strong>The key is in <code>.env</code>.</strong> <code>OPENAI_API_KEY=sk-…</code> at the repository root. With it, the API reports <code>"provider": "openai"</code> at <code>http://localhost:4000/api/health</code>; without it, <code>"mock"</code>.</div></div>
+<div class="step"><div class="n">3</div><div><strong>Start everything:</strong> <code>pnpm dev</code> (or <code>pnpm bootstrap</code> once on a fresh clone, then <code>pnpm dev</code>). Open <code>http://localhost:3000</code> in Chrome, Edge or Safari 16.4+.</div></div>
+<div class="step"><div class="n">4</div><div><strong>Allow the microphone</strong> when the browser asks, after clicking the orb the first time. Use headphones or keep the volume moderate: the agent's own voice through speakers can trigger the barge-in detector if echo cancellation struggles.</div></div>
+<div class="step"><div class="n">5</div><div><strong>Pick a persona</strong> (top right). Alice in Engineering has 11 of 20 PTO days left; Bob in Sales has 7 of 25; Carla in People Operations has 17 of 20. Balance questions and tickets use the selected persona automatically.</div></div>
+<div class="callout">The header shows two badges: the connection state (<strong>connected</strong> once the socket session is ready) and the provider (<strong>OPENAI</strong> or <strong>MOCK</strong>). Hover the provider badge for what the mode means.</div>
+
+<h2>2. Two modes: OpenAI and mock</h2>
+<table>
+  <tr><th></th><th>OpenAI mode</th><th>Mock mode (no key)</th></tr>
+  <tr><td>Understands speech</td><td>Yes, real transcription</td><td>No: replays six demo utterances in order, one per spoken turn</td></tr>
+  <tr><td>Understands questions</td><td>Yes</td><td>Keyword planner: handles the demo phrases, not free-form questions</td></tr>
+  <tr><td>Voice</td><td>Natural speech, streamed</td><td>A short chime whose length follows the reply</td></tr>
+  <tr><td>Tools, citations, trace, tickets</td><td>All real</td><td>All real (same code), deterministic</td></tr>
+  <tr><td>Cost</td><td>≈ $0.005 per spoken turn</td><td>Nothing</td></tr>
+</table>
+<p>Everything in this guide is written for OpenAI mode. In mock mode use the text box for your own questions and expect the voice path to transcribe one of the demo utterances regardless of what you said.</p>
+
+<h2>3. The screen, explained</h2>
+<table>
+  <tr><th>Area</th><th>What it shows</th><th>What to check</th></tr>
+  <tr><td>Transcript (centre)</td><td>Your utterances on the right, answers on the left. Blue chips like <code>1</code> are citations; the list under an answer names the cited documents.</td><td>Click a chip: the sources sheet opens on that passage with its score.</td></tr>
+  <tr><td>Orb (bottom)</td><td>Black = idle · green pulse = listening (ring grows with your voice level) · amber spinner = transcribing / thinking / using tools · blue bars = speaking.</td><td>The label under it names the phase.</td></tr>
+  <tr><td>Agent trace (right)</td><td>Every step as it happens: pre-fetched search, tool calls with arguments (expand a row), results with durations, the retrieval grade badge, "Answer ready".</td><td>Timestamps are relative to the start of the turn.</td></tr>
+  <tr><td>Latency and cost badges (bottom right)</td><td>STT · 1st token · 1st audio · Total · cost ≈ $, plus model/tool call counts.</td><td>Hover the cost badge for token counts (prompt, cached, completion).</td></tr>
+  <tr><td>Controls (top)</td><td>Persona, Hands-free / Push to talk, Reset, Trace (on small screens).</td><td>Reset starts a fresh conversation; the old one stays in history.</td></tr>
+</table>
+
+<h2>4. Voice flows</h2>
+<h3>4.1 Hands-free (default)</h3>
+<div class="check"><div class="what">Click the orb once. Say a question and stop talking.</div><div class="expect">The orb turns green while you speak; ~0.7 s after you stop it turns amber, your words appear on the right, the trace fills, the answer streams in and is spoken. The orb returns to green (still listening) when playback ends.</div></div>
+<div class="check"><div class="what">Ask a second question without touching anything.</div><div class="expect">It is picked up the same way: hands-free stays on until you click the orb again.</div></div>
+<div class="check"><div class="what">Barge-in: while the agent is speaking, start talking.</div><div class="expect">Playback stops within a word or two, the trace shows the turn was cancelled, and your new utterance is handled.</div></div>
+<h3>4.2 Push to talk</h3>
+<div class="check"><div class="what">Switch to Push to talk. Press and hold the orb, speak, release.</div><div class="expect">Only what you said while holding is sent; the label reads "Release to send" while held.</div></div>
+<h3>4.3 Text fallback</h3>
+<div class="check"><div class="what">Type in "Or type a question…" and press Enter.</div><div class="expect">Same pipeline, same trace, spoken reply.</div></div>
+<h3>4.4 Stop and reset</h3>
+<div class="check"><div class="what">Click Stop during a long answer.</div><div class="expect">Speech and generation stop; the partial answer is kept.</div></div>
+<div class="check"><div class="what">Click Reset.</div><div class="expect">Empty transcript, "Say something" placeholder, a new conversation id (the previous one is under Conversations).</div></div>
+
+<h2>5. The six assessment scenarios</h2>
+<p>Say each phrase (or type it). The "look for" column tells you how to prove the behaviour, not just see an answer.</p>
+<table>
+  <tr><th>#</th><th>Scenario</th><th>Say</th><th>Look for</th></tr>
+  <tr><td>1</td><td>Voice conversation</td><td>"What are the core working hours for remote employees?"</td><td>Full voice round-trip; STT badge filled; answer cites the Remote Work Policy or Handbook.</td></tr>
+  <tr><td>2</td><td>Knowledge-grounded answer</td><td>"How many vacation days do new employees get, and can I carry unused days over?"</td><td>Chips [1] [2]…; sources sheet shows PTO and Leave Policy › Allowance and › Carryover; trace shows the pre-fetched search graded <em>strong</em>.</td></tr>
+  <tr><td>3</td><td>Semantic retrieval</td><td>"How long do I have to claim back money I spent on a business trip?"</td><td>The policy says "submitted within 30 days": no shared words with the question, yet it is found and cited.</td></tr>
+  <tr><td>4</td><td>Agentic execution</td><td>"I'd like to take off from December 21st through the end of the year. How many PTO days would that cost me, and do I have enough left?"</td><td>Several steps in the trace: pre-fetched search, then <code>search_knowledge_base</code> and <code>get_leave_balance</code> together (and <code>count_business_days</code> / <code>calculate</code> when used). Answer: six PTO days, eleven remaining for Alice.</td></tr>
+  <tr><td>4b</td><td>Confirmed action</td><td>"My laptop screen is cracked, what should I do?" then "Yes please, high priority"</td><td>First answer quotes the equipment policy and offers to open a ticket; second runs <code>create_support_ticket</code> and reads out a TCK- reference. Open Tools & tickets: the ticket is there, high priority, linked to the conversation.</td></tr>
+  <tr><td>5</td><td>Contextual follow-up</td><td>After #2: "And what about sick days?"</td><td>Answered from the same policy without asking what you mean; the history is in the prompt.</td></tr>
+  <tr><td>6</td><td>Insufficient information</td><td>"What's the policy on bringing dogs to the office?"</td><td>Trace: pre-fetch graded <em>weak</em>, a second search with new phrasing, then an honest "the knowledge base doesn't cover this" with a pointer to People Operations and an offer to open a ticket. No citations.</td></tr>
+</table>
+<div class="callout ok">Also try the persona switch: select Bob, ask "How much vacation do I have left?" and expect seven of twenty-five days; nobody is ever asked for an employee id.</div>
+
+<h2>6. Tool-by-tool checks</h2>
+<table>
+  <tr><th>Tool</th><th>Say</th><th>Expect in the trace</th><th>Where the effect is visible</th></tr>
+  <tr><td><code>search_knowledge_base</code></td><td>Any policy question, e.g. "Do I need a receipt for a $20 taxi?"</td><td>"Searching the knowledge base" with queries; result "N passages (strong)"; grade badge</td><td>Citation chips, sources sheet, Knowledge page search for the same query</td></tr>
+  <tr><td><code>get_current_datetime</code></td><td>"Is there a company holiday coming up this month?"</td><td>"Checking the date and time" → "Monday, 10 November 2026 … (America/New_York)"</td><td>Answer reasons from today's date</td></tr>
+  <tr><td><code>count_business_days</code></td><td>"If I take December 21st to the 31st off, how many PTO days is that?"</td><td>"Counting working days" → "9 weekdays − 3 holidays = 6 business days"</td><td>Answer says six</td></tr>
+  <tr><td><code>calculate</code></td><td>"I've used seven days this year; how many are left if I take five more?"</td><td>"Calculating" → "20 - 7 - 5 = 8"</td><td>Answer says eight</td></tr>
+  <tr><td><code>get_leave_balance</code></td><td>"How many PTO days do I have left?"</td><td>"Looking up leave balance" → "Alice Nguyen: 11 of 20 PTO days left …" (~150 ms simulated HR latency)</td><td>HR cards on the Tools page show the same numbers</td></tr>
+  <tr><td><code>create_support_ticket</code></td><td>"My phone was stolen" → "Yes, open it as urgent"</td><td>Offer first; after yes: "Creating a support ticket" → "Ticket TCK-XXXXXX created (urgent priority)"</td><td>Tools & tickets table; <code>GET /api/hr/tickets</code>; conversation link</td></tr>
+</table>
+<p>Expand any trace row (chevron) to see the exact arguments the model sent and, for searches, the passages with their scores. Failed tools show a red mark with the error; the agent recovers in the next step.</p>
+
+<h2>7. Tools & tickets page</h2>
+<div class="check"><div class="what">Open <strong>Tools & tickets</strong> in the sidebar.</div><div class="expect">Four sections: Support tickets, Tool activity, Tool catalogue (six cards, each with its argument schema and a "Try:" phrase), HR system (three personas with PTO and sick meters). The page refreshes every few seconds.</div></div>
+<div class="check"><div class="what">Create a ticket by voice in another tab, then come back.</div><div class="expect">The new row appears within ~8 seconds: reference, title, priority badge, requester id, "View conversation" link.</div></div>
+<div class="check"><div class="what">Change a ticket's status from Open to In progress or Resolved.</div><div class="expect">Toast "TCK-… marked resolved"; the row updates; <code>GET /api/hr/tickets</code> reflects it.</div></div>
+<div class="check"><div class="what">Read the Tool activity bars.</div><div class="expect">Calls per tool with failure counts and average duration; the recent-invocations table links each result to its conversation.</div></div>
+
+<h2>8. Knowledge base page</h2>
+<div class="check"><div class="what">Search "What happens to my unused vacation at the end of the year?" in Hybrid mode.</div><div class="expect">Ranked passages with three score bars (fused, dense, keyword); the PTO policy's Carryover section first.</div></div>
+<div class="check"><div class="what">Switch to Dense and Keyword.</div><div class="expect">Orderings differ; Keyword shows BM25-only ranks, Dense embedding-only.</div></div>
+<div class="check"><div class="what">Click a document in the left list.</div><div class="expect">A sheet with the rendered document, its category, chunk count and sections.</div></div>
+<div class="check"><div class="what">Click Reindex all.</div><div class="expect">The button counts jobs ("Indexing 3/12 …") as the BullMQ worker processes them; a success toast at the end.</div></div>
+
+<h2>9. Conversations page</h2>
+<div class="check"><div class="what">Open <strong>Conversations</strong>.</div><div class="expect">Every session with title (first question), persona, message count and last activity.</div></div>
+<div class="check"><div class="what">Open one.</div><div class="expect">Full transcript with citation chips and the last turn's latency/cost badges. "Continue by voice" reopens it in the agent with the same history.</div></div>
+<div class="check"><div class="what">Delete one.</div><div class="expect">A confirmation dialog, then it disappears.</div></div>
+
+<h2>10. API and Swagger checks</h2>
+<p>Open <code>http://localhost:4000/api/docs</code>. Useful calls:</p>
+<pre><code>curl -s localhost:4000/api/health
+curl -s -X POST localhost:4000/api/knowledge/search -H 'content-type: application/json' \
+  -d '{"query":"hotel budget per night in London","topK":3,"mode":"hybrid"}'
+curl -s -X POST localhost:4000/api/agent/turn -H 'content-type: application/json' \
+  -d '{"text":"How many PTO days do I have left this year?"}'
+curl -s localhost:4000/api/tools
+curl -s localhost:4000/api/tools/usage
+curl -s localhost:4000/api/hr/tickets
+curl -s localhost:4000/api/conversations</code></pre>
+<p>The agent-turn response contains the assistant message with <code>sources</code>, <code>steps</code> (the trace) and <code>metrics</code> (latency, tokens, cost), which is the easiest way to script checks.</p>
+
+<h2>11. Automated tests</h2>
+<table>
+  <tr><th>Command</th><th>What runs</th><th>Needs</th></tr>
+  <tr><td><code>pnpm test</code></td><td>Unit tests for the API, the web app and the contracts package (84 tests)</td><td>nothing</td></tr>
+  <tr><td><code>pnpm --filter @voice-agent/api test:e2e</code></td><td>API end-to-end incl. the Socket.IO gateway (18 tests), mock providers</td><td>Postgres + Redis running</td></tr>
+  <tr><td><code>pnpm --filter @voice-agent/web test:e2e</code></td><td>Browser suite (7 tests) incl. a hands-free voice turn with a fake microphone</td><td>API + web running (or it starts them); mock or OpenAI mode</td></tr>
+  <tr><td><code>pnpm eval:retrieval</code></td><td>Retrieval quality report (hit@1, hit@3, MRR per mode)</td><td>Postgres; OpenAI key for real embeddings</td></tr>
+  <tr><td><code>pnpm --filter @voice-agent/api bench:speech</code></td><td>Speech latency micro-benchmark</td><td>OpenAI key (costs well under a cent)</td></tr>
+</table>
+<div class="callout warn">The browser suite run against an OpenAI-mode API spends about $0.03 per run. CI always runs in mock mode.</div>
+
+<h2>12. Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Cause and fix</th></tr>
+  <tr><td>Badge says "disconnected"</td><td>The API is not running on port 4000. <code>pnpm dev</code>, or check <code>http://localhost:4000/api/health</code>.</td></tr>
+  <tr><td>Orb disabled / "Microphone access is not available"</td><td>Browser blocked the microphone or the page is not on localhost/https. Allow it in site settings and reload.</td></tr>
+  <tr><td>Hands-free never triggers</td><td>Speak clearly for at least half a second; the detector ignores very short sounds. Check the input device in the browser's site settings.</td></tr>
+  <tr><td>The agent interrupts itself</td><td>Speaker audio feeding back into the microphone. Use headphones or Push to talk.</td></tr>
+  <tr><td>Spoken replies are a chime, transcripts are demo phrases</td><td>Mock mode: no key found. Add <code>OPENAI_API_KEY</code> to <code>.env</code>, restart the API, run <code>pnpm db:seed</code> to re-embed.</td></tr>
+  <tr><td>Answers cite nothing / "weak" grades everywhere</td><td>Index embedded with a different provider. Run <code>pnpm db:seed</code> (documents remember their embedding model).</td></tr>
+  <tr><td>Port already allocated</td><td>Another Postgres uses 5434 or Redis 6379: change the host port in <code>docker/docker-compose.yml</code> and <code>DATABASE_URL</code> / <code>REDIS_URL</code>.</td></tr>
+  <tr><td>Reindex jobs stay queued</td><td>Redis is down or the API worker is not running. <code>pnpm infra:up</code> and restart the API.</td></tr>
+</table>
+
+<script type="module">
+  await document.fonts.ready;
+  document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

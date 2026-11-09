@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "copy-assets": "node scripts/copy-vad-assets.mjs"
+    "copy-assets": "node scripts/copy-vad-assets.mjs",
+    "docs:pdf": "node scripts/render-docs.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

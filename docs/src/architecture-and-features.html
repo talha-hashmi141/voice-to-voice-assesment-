@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Orbital Voice Agent · Architecture & Features</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="doc.css" />
+</head>
+<body>
+
+<section class="cover">
+  <div>
+    <div class="kicker">Technical overview</div>
+    <h1>Orbital Voice Agent</h1>
+    <p class="lead">A voice-to-voice AI assistant with hybrid retrieval-augmented generation, semantic search, agentic tool use and full observability. Architecture, flows, diagrams and the complete feature list.</p>
+  </div>
+  <dl class="meta">
+    <div><dt>Stack</dt><dd>NestJS 11 · Next.js 16 · Postgres 17 + pgvector · Redis + BullMQ · OpenAI</dd></div>
+    <div><dt>Repository</dt><dd>voice-rag-agent (pnpm + Turborepo monorepo)</dd></div>
+    <div><dt>Assessment</dt><dd>Senior Software Engineer · Voice-to-Voice Agent with RAG, Semantic Search & Agentic AI</dd></div>
+    <div><dt>Document date</dt><dd>10 November 2026</dd></div>
+  </dl>
+</section>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li>Executive summary</li>
+    <li>Feature list</li>
+    <li>System architecture</li>
+    <li>Monorepo and layering</li>
+    <li>A voice turn, end to end</li>
+    <li>The agent loop</li>
+    <li>Knowledge base and retrieval</li>
+    <li>Tools</li>
+    <li>Data model</li>
+    <li>Contracts: REST and Socket.IO</li>
+    <li>Latency and cost</li>
+    <li>Testing and quality</li>
+    <li>Configuration and operations</li>
+    <li>Key technical decisions</li>
+    <li>Limitations and roadmap</li>
+  </ol>
+</nav>
+
+<h2>1. Executive summary</h2>
+<p>The Orbital Voice Agent lets an employee talk to an assistant that answers from a company handbook, uses tools when it needs facts the handbook cannot give (dates, balances, arithmetic) or when it must act (open a ticket), and talks back. Every answer is grounded in cited passages, every step of the agent's reasoning is streamed to the screen, and every turn records its latency, token usage and estimated cost.</p>
+<div class="kpi">
+  <div><strong>6</strong><span>agent tools, one of them side-effecting</span></div>
+  <div><strong>12</strong><span>handbook documents · 71 indexed chunks</span></div>
+  <div><strong>≈ 1.9 s</strong><span>typed question to full answer (one model call)</span></div>
+  <div><strong>≈ $0.005</strong><span>per spoken turn at list prices</span></div>
+</div>
+<p>The system is a cascaded pipeline (speech-to-text → agent → text-to-speech) rather than a single speech-to-speech model, so the retrieval, grading, tool orchestration and citations live in this codebase where they can be tested, traced and demonstrated. Latency is recovered with on-device voice activity detection, eager retrieval before the first model call, concurrent tool execution and streamed speech synthesis.</p>
+<div class="callout ok">Everything runs in two modes from the same code: <strong>OpenAI mode</strong> with real models when an API key is present, and a deterministic <strong>mock mode</strong> (scripted planner, hashing embeddings, replayed transcription, synthesized audio) that exercises the whole pipeline offline. All automated tests and CI use mock mode and never spend money.</div>
+
+<h2>2. Feature list</h2>
+<div class="grid-2">
+  <div class="card">
+    <h3>Voice experience</h3>
+    <ul>
+      <li><strong>Hands-free listening</strong> with Silero voice activity detection running in the browser (ONNX runtime, assets served same-origin); only the speech segment is uploaded as 16 kHz WAV.</li>
+      <li><strong>Push-to-talk</strong> mode using the same detector, submitting on release.</li>
+      <li><strong>Barge-in</strong>: real speech during playback cancels the current turn through an abort signal that reaches the model call, the tools and the speech stream.</li>
+      <li><strong>Streamed speech</strong>: replies are split at sentence boundaries while the model is still writing; each sentence is synthesized immediately and delivered as raw PCM chunks played gaplessly on the Web Audio clock.</li>
+      <li><strong>State-driven orb</strong>: idle, listening with level meter, transcribing, thinking, using tools, speaking.</li>
+      <li><strong>Text fallback</strong> through the same pipeline for accessibility and testing.</li>
+      <li><strong>Domain vocabulary prompt</strong> for transcription (product names, acronyms).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Knowledge base and retrieval</h3>
+    <ul>
+      <li><strong>Structure-aware chunking</strong>: markdown sections by heading, recursive paragraph/sentence splitting to ~400 tokens with sentence overlap, tiny sections merged.</li>
+      <li><strong>Contextual chunk headers</strong>: each chunk is embedded with its document title and section path.</li>
+      <li><strong>Hybrid search</strong>: pgvector cosine similarity plus a BM25 keyword channel over stored lexemes, fused with weighted reciprocal rank fusion, for up to three query phrasings.</li>
+      <li><strong>Retrieval grading</strong> (strong / weak / none) from calibrated similarity thresholds and cross-channel agreement.</li>
+      <li><strong>Search playground</strong> with per-channel scores, three modes, and a document viewer.</li>
+      <li><strong>Asynchronous ingestion</strong> on Redis + BullMQ with job progress; uploads and re-indexing from the API; checksum-based skipping.</li>
+      <li><strong>Evaluation script</strong> reporting hit@1, hit@3 and MRR for paraphrased questions in every mode.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Agent and tools</h3>
+    <ul>
+      <li><strong>ReAct-style loop</strong> with a step budget; tool failures are fed back as structured errors the model can recover from.</li>
+      <li><strong>Eager retrieval</strong>: passages for the message are fetched before the first model call, so most questions finish in one round.</li>
+      <li><strong>Concurrent tool execution</strong> with per-tool timeouts and cancellation.</li>
+      <li><strong>Six tools</strong>: knowledge search, current date/time, business-day counting, calculator, leave balance, support ticket.</li>
+      <li><strong>Confirmation before side effects</strong>: the agent offers to open a ticket and acts only on a clear yes.</li>
+      <li><strong>Citations</strong> renumbered in order of appearance; markers are removed from speech.</li>
+      <li><strong>Memory</strong>: token-budgeted sliding window plus a persona (name, employee id, department, timezone), so follow-ups work and nothing already known is asked again.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Observability, UX and engineering</h3>
+    <ul>
+      <li><strong>Live agent trace</strong>: tool calls with arguments, results with durations, retrieval grades, state transitions.</li>
+      <li><strong>Latency badges</strong> per turn (speech-to-text, first token, first audio, total) and <strong>cost badges</strong> with token counts.</li>
+      <li><strong>Sources sheet</strong> from citation chips; conversation history with "continue by voice".</li>
+      <li><strong>Tools & tickets dashboard</strong>: tool catalogue with schemas, usage statistics, support tickets with status changes, HR balances.</li>
+      <li><strong>Light, dark and system themes</strong>; keyboard and screen-reader friendly controls.</li>
+      <li><strong>One contract package</strong>: Zod schemas generate API DTOs, OpenAPI docs and client types.</li>
+      <li><strong>Ports and adapters</strong> for every AI vendor; <strong>mock mode</strong>; 100+ automated tests incl. a real microphone flow; CI; one-command bootstrap.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>3. System architecture</h2>
+<p>The browser owns capture, playback and presentation. The API owns the session, the turn pipeline, the agent loop, retrieval, tools and persistence. OpenAI provides the models behind three ports; Postgres stores vectors, full-text indexes, conversations and tickets; Redis backs the ingestion queue.</p>
+<figure class="figure">
+<pre class="mermaid">
+flowchart TB
+  classDef browser fill:#e8efff,stroke:#1f5eff,color:#16181d;
+  classDef api fill:#ffffff,stroke:#5d6470,color:#16181d;
+  classDef ext fill:#fff3d6,stroke:#9a6400,color:#16181d;
+  classDef data fill:#e4f5ec,stroke:#137a4a,color:#16181d;
+  VAD["Browser · Silero VAD → 16 kHz WAV"]:::browser
+  UI["Browser · transcript · trace · latency & cost · dashboards"]:::browser
+  AQ["Browser · ordered audio queue (PCM) → speaker"]:::browser
+  GW["Socket.IO /voice gateway · REST controllers"]:::api
+  PIPE["Voice turn pipeline"]:::api
+  AG["Agent runtime · eager retrieval · ReAct loop"]:::api
+  TX["Tool executor · concurrent · timeouts"]:::api
+  RET["Retrieval service · dense + BM25 → weighted RRF"]:::api
+  HR["Mock HR system"]:::api
+  ING["BullMQ ingestion worker"]:::api
+  STT["OpenAI STT · gpt-4o-transcribe"]:::ext
+  LLM["OpenAI LLM · gpt-4.1-mini"]:::ext
+  TTS["OpenAI TTS · gpt-4o-mini-tts · PCM stream"]:::ext
+  PG[("Postgres 17 · pgvector · tsvector · conversations · tickets")]:::data
+  RD[("Redis · BullMQ")]:::data
+  VAD -- "audio.submit" --> GW
+  GW -- "events" --> UI
+  GW --> PIPE
+  PIPE --> STT
+  PIPE --> AG
+  PIPE --> TTS
+  TTS -- "agent.audio" --> AQ
+  AG --> LLM
+  AG --> TX
+  TX --> RET
+  TX --> HR
+  RET --> PG
+  AG --> PG
+  GW --> ING
+  ING --> RD
+  ING --> PG
+</pre>
+<figcaption>Runtime components and the main data paths (blue: browser, white: API, amber: OpenAI ports with mock adapters in tests, green: data stores).</figcaption>
+</figure>
+<figure class="figure">
+<pre class="mermaid">
+flowchart LR
+  subgraph Dev["docker compose"]
+    PG[("postgres: pgvector/pgvector:pg17<br/>host port 5434")]
+    RD[("redis:7-alpine<br/>port 6379")]
+  end
+  API["apps/api · NestJS<br/>:4000 /api, /api/docs, /voice"] --> PG
+  API --> RD
+  WEB["apps/web · Next.js<br/>:3000"] -- "REST + WebSocket" --> API
+  API -- "HTTPS" --> OAI["OpenAI<br/>chat · embeddings · transcription · speech"]
+</pre>
+<figcaption>Local deployment. <code>pnpm bootstrap</code> starts the containers, migrates, seeds and indexes; <code>pnpm dev</code> runs both apps.</figcaption>
+</figure>
+
+<h2>4. Monorepo and layering</h2>
+<pre><code>voice-rag-agent/
+├─ apps/api            NestJS: common/ (config, database, queue, logging) · modules/ (openai, embeddings, llm,
+│                      speech, knowledge, hr, tools, conversations, agent, voice, health)
+├─ apps/web            Next.js: app/ routes · components/ (voice, transcript, trace, knowledge,
+│                      conversations, tools, layout, ui) · features/ (voice-session, audio, knowledge, …) · lib/
+├─ packages/contracts  Zod schemas → DTO types · socket event map · tool argument schemas · personas
+├─ packages/config     shared tsconfig / ESLint bases
+├─ docker/             Postgres + pgvector, Redis
+└─ scripts/            bootstrap, infra checks</code></pre>
+<p>Every NestJS module has the same shape, and every folder exports through an <code>index.ts</code> barrel:</p>
+<table>
+  <tr><th>Layer</th><th>Responsibility</th><th>Examples</th></tr>
+  <tr><td>Presentation</td><td>Validate DTOs, map to and from contracts, no business logic</td><td><code>KnowledgeController</code>, <code>ToolsController</code>, <code>VoiceGateway</code></td></tr>
+  <tr><td>Application</td><td>Use-cases and orchestration</td><td><code>AgentRuntime</code>, <code>VoiceTurnPipeline</code>, <code>IngestionService</code>, <code>RetrievalService</code></td></tr>
+  <tr><td>Domain</td><td>Pure logic and ports</td><td><code>DocumentChunker</code>, <code>reciprocalRankFusion</code>, <code>bm25</code>, <code>RetrievalEvaluator</code>, <code>Tool</code>, <code>LlmProvider</code>, <code>SttProvider</code>, <code>TtsProvider</code></td></tr>
+  <tr><td>Infrastructure</td><td>Adapters and repositories</td><td>Drizzle repositories, OpenAI adapters, mock adapters, BullMQ processor</td></tr>
+</table>
+<figure class="figure">
+<pre class="mermaid">
+flowchart TB
+  subgraph contracts["packages/contracts (Zod)"]
+    SCH["schemas · DTO types · socket events · tool args"]
+  end
+  subgraph api["apps/api"]
+    CTRL["Controllers / Gateway"] --> SVC["Services"]
+    SVC --> DOM["Domain: chunking · fusion · BM25 · grading · tools · ports"]
+    SVC --> REPO["Repositories (Drizzle)"]
+    DOM --> ADP["Adapters: OpenAI · Mock"]
+  end
+  subgraph web["apps/web"]
+    FEAT["features: voice-session · audio · knowledge · conversations · tools"] --> COMP["components"]
+    FEAT --> APIC["typed API + socket client"]
+  end
+  SCH --> CTRL
+  SCH --> APIC
+  SCH -. "createZodDto → validation + OpenAPI" .-> CTRL
+</pre>
+<figcaption>Layering and the single source of truth for types.</figcaption>
+</figure>
+
+<h2>5. A voice turn, end to end</h2>
+<figure class="figure">
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant B as Browser
+  participant G as Gateway
+  participant P as Pipeline
+  participant A as Agent
+  participant T as Tools
+  participant O as OpenAI
+  U->>B: speaks
+  B->>B: VAD detects end of speech (~0.65 s silence)
+  B->>G: audio.submit (WAV, duration)
+  G->>P: run turn (abort signal)
+  P->>O: transcription
+  P-->>B: transcript.user · turn.state thinking
+  P->>A: run(userText, history, persona)
+  A->>A: eager retrieval (hybrid search, grade)
+  A-->>B: agent.tool.call / result / retrieval.evaluated
+  A->>O: chat completion (stream, tools)
+  alt model requests tools
+    A-->>B: agent.tool.call ×N
+    A->>T: execute all N concurrently
+    T-->>A: results (+ retrieval grade)
+    A-->>B: agent.tool.result ×N
+    A->>O: next step
+  end
+  A-->>P: text deltas
+  P-->>B: agent.text.delta
+  P->>O: speech (PCM stream) per sentence
+  P-->>B: agent.audio seq 0 part 0 …
+  B->>U: plays chunks gaplessly
+  P-->>B: turn.completed (message, sources, steps, metrics)
+  G-->>B: turn.state idle
+</pre>
+<figcaption>One spoken turn. Steps 8–9 give simple questions a single model round; steps 11–15 run only when the model asks for tools.</figcaption>
+</figure>
+<p>A typed turn follows the same path from step 7 on (through <code>text.submit</code> on the socket, or the non-streaming <code>POST /api/agent/turn</code> used by tests). Cancellation (barge-in, reset, disconnect) aborts the signal; the runtime stops the model stream, the executor stops waiting for tools, and the speech scheduler drops queued chunks.</p>
+
+<h2>6. The agent loop</h2>
+<figure class="figure">
+<pre class="mermaid">
+flowchart TD
+  S([turn starts]) --> H["load history (4k-token window) + persona"]
+  H --> Q{"looks like a question?"}
+  Q -- yes --> E["eager retrieval: hybrid search of the raw message"]
+  E --> GR["grade: strong / weak / none"]
+  GR --> INJ["inject passages (or 'nothing found') as a system message"]
+  Q -- no --> M
+  INJ --> M["stream a model step<br/>system prompt · history · passages · tools"]
+  M --> TC{"tool calls requested?"}
+  TC -- no --> ANS["final text → resolve [n] citations → renumber → strip for speech"]
+  TC -- yes --> EX["execute all calls concurrently<br/>Zod-validated args · timeouts · abort"]
+  EX --> R["append results as tool messages<br/>search results carry a grade + guidance"]
+  R --> B{"step budget left?"}
+  B -- yes --> M
+  B -- no --> FB["graceful fallback answer"]
+  ANS --> P["persist user + assistant messages<br/>sources · steps · metrics · cost"]
+  FB --> P
+  P --> D([turn.completed])
+</pre>
+<figcaption>Control flow of <code>AgentRuntime.run()</code>. Every box emits typed events consumed by the REST endpoint and the voice gateway.</figcaption>
+</figure>
+<p>The system prompt encodes the policy: ground every policy statement in passages and cite them; reformulate once on a weak grade; say so and point to People Operations or the helpdesk on none; use tools instead of guessing dates or arithmetic; call independent tools together; offer to open a ticket when a policy says so and act on a clear yes; speak in short plain sentences with no markdown.</p>
+
+<h2>7. Knowledge base and retrieval</h2>
+<figure class="figure">
+<pre class="mermaid">
+flowchart LR
+  MD["markdown +<br/>front-matter"] --> SEC["sections<br/>by heading"]
+  SEC --> CH["chunks ≤ 400 tokens<br/>sentence overlap<br/>tiny sections merged"]
+  CH --> HDR["contextual header<br/>Document › Section"]
+  HDR --> EMB["text-embedding-3-small"]
+  EMB --> PGV[("chunks.embedding<br/>HNSW cosine")]
+  CH --> TSV[("chunks.tsv<br/>generated tsvector · GIN")]
+</pre>
+<figcaption>Ingestion: inline for the seed script, as BullMQ jobs for uploads and re-indexing. Unchanged documents are skipped by checksum.</figcaption>
+</figure>
+<figure class="figure">
+<pre class="mermaid">
+flowchart LR
+  Q["query phrasing<br/>(1–3 per search)"] --> QE["embed"] --> DENSE["top-k by<br/>cosine (HNSW)"]
+  Q --> QL["lexemes via<br/>to_tsvector"] --> CAND["GIN<br/>candidates"] --> BM["BM25<br/>IDF + length norm"]
+  DENSE --> RRF["weighted RRF<br/>k = 60 · keyword 0.7"]
+  BM --> RRF
+  RRF --> GRADE["grade<br/>strong / weak / none"] --> OUT["ranked passages<br/>fused · dense · keyword scores"]
+</pre>
+<figcaption>Hybrid retrieval: both channels run concurrently for every phrasing and read the same table.</figcaption>
+</figure>
+<p>Evaluation with nineteen paraphrased questions (<code>pnpm eval:retrieval</code>):</p>
+<table>
+  <tr><th>mode</th><th>hit@1</th><th>hit@3</th><th>MRR</th><th class="muted">mock vectors hit@1 / hit@3 / MRR</th></tr>
+  <tr><td>hybrid</td><td>0.89</td><td>0.94</td><td>0.92</td><td class="muted">0.89 / 0.94 / 0.91</td></tr>
+  <tr><td>dense</td><td>0.94</td><td>1.00</td><td>0.96</td><td class="muted">0.72 / 0.89 / 0.81</td></tr>
+  <tr><td>keyword (BM25)</td><td>0.72</td><td>0.89</td><td>0.79</td><td class="muted">0.67 / 0.89 / 0.78</td></tr>
+</table>
+<p class="small muted">With real embeddings the dense channel alone is already excellent on paraphrases; hybrid matches it at hit@3 and keeps exact-term robustness (ticket references, product names, numbers). With the lexical mock vectors, fusion clearly beats either channel.</p>
+<h3>The twelve documents</h3>
+<p>Employee Handbook Overview · PTO and Leave Policy · Company Holidays 2026 · Remote and Hybrid Work Policy · Expense and Travel Policy · IT Security Policy · Equipment and Laptop Policy · Benefits Overview · New Hire Onboarding Guide · IT Helpdesk and Support Process · Code of Conduct · Performance Reviews and Promotions. Topics deliberately absent (pets, equity, relocation, visas) exercise the "insufficient information" behaviour.</p>
+
+<h2>8. Tools</h2>
+<table>
+  <tr><th>Tool</th><th>What it does</th><th>Side effects</th><th>Where its effect is visible</th></tr>
+  <tr><td><code>search_knowledge_base</code></td><td>Hybrid search for 1–3 phrasings; returns graded, numbered passages with guidance</td><td>none</td><td>Trace (grade, passages), citation chips, sources sheet</td></tr>
+  <tr><td><code>get_current_datetime</code></td><td>Date, weekday and time in the user's timezone</td><td>none</td><td>Trace result summary</td></tr>
+  <tr><td><code>count_business_days</code></td><td>Working days in a range minus the holidays the agent looked up</td><td>none</td><td>Trace: "9 weekdays − 3 holidays = 6 business days"</td></tr>
+  <tr><td><code>calculate</code></td><td>Sandboxed arithmetic (mathjs with code-execution functions removed)</td><td>none</td><td>Trace result summary</td></tr>
+  <tr><td><code>get_leave_balance</code></td><td>PTO and sick balance from the simulated HR system; defaults to the current persona</td><td>none</td><td>Trace; HR cards on the Tools page</td></tr>
+  <tr><td><code>create_support_ticket</code></td><td>Opens a ticket after explicit confirmation; returns a TCK-reference</td><td><span class="tag red">writes</span></td><td>Tools & tickets page (status editable), <code>GET /api/hr/tickets</code></td></tr>
+</table>
+<p>Tools implement one interface (name, description, Zod argument schema, timeout, mutating flag, <code>execute</code>). The registry converts schemas to JSON Schema for the model and the executor validates arguments before running anything. The Tools & tickets page shows the catalogue exactly as the model sees it, aggregated usage from stored traces, the tickets table and the HR balances.</p>
+
+<h2>9. Data model</h2>
+<figure class="figure">
+<pre class="mermaid">
+erDiagram
+  documents ||--o{ chunks : "has"
+  conversations ||--o{ messages : "has"
+  conversations ||--o{ support_tickets : "created in"
+  documents {
+    uuid id PK
+    varchar slug UK
+    varchar title
+    varchar category
+    jsonb tags
+    text content
+    varchar checksum
+    varchar embedding_model
+  }
+  chunks {
+    uuid id PK
+    uuid document_id FK
+    int ordinal
+    text section_path
+    text content
+    text embedded_text
+    int token_count
+    vector embedding "1536, HNSW"
+    tsvector tsv "generated, GIN"
+  }
+  conversations {
+    uuid id PK
+    varchar title
+    jsonb user_context
+    text summary
+  }
+  messages {
+    uuid id PK
+    uuid conversation_id FK
+    varchar role
+    text content
+    jsonb sources
+    jsonb steps
+    jsonb metrics "latency, tokens, cost"
+  }
+  support_tickets {
+    uuid id PK
+    varchar reference UK
+    uuid conversation_id FK
+    varchar requester_employee_id
+    varchar priority
+    varchar status
+  }
+</pre>
+<figcaption>Postgres schema (Drizzle ORM, SQL migrations). Employees live in an in-memory mock of an external HR system.</figcaption>
+</figure>
+
+<h2>10. Contracts: REST and Socket.IO</h2>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+  <tr><td>GET</td><td><code>/api/health</code></td><td>liveness, provider, dependency checks</td></tr>
+  <tr><td>GET</td><td><code>/api/knowledge/documents[/:id]</code></td><td>documents with chunk statistics; full content and sections</td></tr>
+  <tr><td>POST</td><td><code>/api/knowledge/search</code></td><td>hybrid / dense / sparse search with scores</td></tr>
+  <tr><td>POST</td><td><code>/api/knowledge/reindex?force=</code> · <code>/api/knowledge/documents</code></td><td>queue indexing jobs · upload a markdown document</td></tr>
+  <tr><td>GET</td><td><code>/api/knowledge/jobs[/:id]</code></td><td>ingestion job status</td></tr>
+  <tr><td>POST</td><td><code>/api/agent/turn</code></td><td>one non-streaming text turn</td></tr>
+  <tr><td>GET/POST/DELETE</td><td><code>/api/conversations[/:id]</code></td><td>history with transcripts, sources, traces, metrics</td></tr>
+  <tr><td>GET</td><td><code>/api/tools</code> · <code>/api/tools/usage</code></td><td>tool catalogue with schemas · usage statistics and recent invocations</td></tr>
+  <tr><td>GET/PATCH</td><td><code>/api/hr/tickets[/:id/status]</code> · <code>/api/hr/employees[/:id/leave-balance]</code></td><td>tickets created by the agent · mock HR data</td></tr>
+</table>
+<p>Socket.IO namespace <code>/voice</code> (typed in <code>packages/contracts</code>): client → server <code>session.start</code>, <code>audio.submit</code>, <code>text.submit</code>, <code>turn.cancel</code>, <code>conversation.reset</code>; server → client <code>session.ready</code>, <code>turn.state</code>, <code>transcript.user</code>, <code>agent.text.delta</code>, <code>agent.tool.call</code>, <code>agent.tool.result</code>, <code>agent.retrieval.evaluated</code>, <code>agent.audio</code> (seq, part, final, PCM), <code>turn.completed</code>, <code>turn.error</code> (with a <code>fatal</code> flag). OpenAPI documentation is served at <code>/api/docs</code>.</p>
+
+<h2>11. Latency and cost</h2>
+<table>
+  <tr><th>Stage</th><th>Technique</th></tr>
+  <tr><td>End of speech</td><td>Silero VAD in the browser, ~650 ms trailing silence; speech segment only</td></tr>
+  <tr><td>Speech-to-text</td><td><code>gpt-4o-transcribe</code> (≈1.0 s in benchmark vs 1.4–2.2 s for the mini model, +$0.003/min)</td></tr>
+  <tr><td>Eager retrieval</td><td>~0.3 s before the first model call; saves a whole model round for most questions</td></tr>
+  <tr><td>First token</td><td>non-reasoning model, compact prompt, streaming, 400-token reply cap; ~1.0–1.5 s per call incl. network</td></tr>
+  <tr><td>Tools</td><td>concurrent execution; dense and keyword channels in parallel inside Postgres</td></tr>
+  <tr><td>First audio</td><td>sentence-level pipelining; raw PCM streamed from the first ~100 ms of audio (≈0.8 s after synthesis starts)</td></tr>
+</table>
+<table>
+  <tr><th>Measured turn (OpenAI mode, ~0.3 s network RTT per call)</th><th>Model calls</th><th>First token</th><th>First audio</th><th>Total</th><th>Est. cost</th></tr>
+  <tr><td>Typed policy question with carry-over follow-up</td><td>1</td><td>1.4 s</td><td>–</td><td>1.9 s</td><td>$0.0009</td></tr>
+  <tr><td>December leave: holidays + balance + day count</td><td>2</td><td>2.8 s</td><td>–</td><td>3.4 s</td><td>$0.0021</td></tr>
+  <tr><td>"Can I bring my dog?" → weak grade → reformulate → abstain</td><td>2</td><td>3.0 s</td><td>–</td><td>3.3 s</td><td>$0.0014</td></tr>
+  <tr><td>Spoken question, 6 s utterance (STT 1.3 s)</td><td>1</td><td>3.1 s</td><td>4.5 s</td><td>6.0 s</td><td>$0.005</td></tr>
+</table>
+<table>
+  <tr><th>Cost component</th><th>Price basis</th><th>Typical</th></tr>
+  <tr><td>Chat (<code>gpt-4.1-mini</code>)</td><td>$0.40 / 1M input ($0.10 cached) · $1.60 / 1M output</td><td>$0.001–0.002 per turn</td></tr>
+  <tr><td>Speech-to-text (<code>gpt-4o-transcribe</code>)</td><td>$0.006 / minute</td><td>$0.0006 per 6 s utterance</td></tr>
+  <tr><td>Text-to-speech (<code>gpt-4o-mini-tts</code>)</td><td>≈ $0.015 / minute of speech</td><td>$0.004 per 60-word reply</td></tr>
+  <tr><td>Embeddings (<code>text-embedding-3-small</code>)</td><td>$0.02 / 1M tokens</td><td>negligible; whole knowledge base ≈ $0.0002</td></tr>
+</table>
+<p>Levers that keep cost low: eager retrieval, the reply cap, a 4 000-token history window, OpenAI's automatic prompt caching (the stable prefix is billed at a quarter price), no LLM reranker by default, and mock providers in every automated test.</p>
+
+<h2>12. Testing and quality</h2>
+<table>
+  <tr><th>Suite</th><th>Covers</th></tr>
+  <tr><td>API unit (Jest, 71)</td><td>chunking, RRF, BM25, grading, tool registry/executor, tools, mock providers, memory, citations, prompt, agent loop with a scripted model (single step, concurrent tools, eager retrieval, weak → reformulate, failure recovery, step budget, cancellation), sentence chunker, streamed speech scheduler, voice pipeline</td></tr>
+  <tr><td>API e2e (Jest + supertest + socket.io-client, 18)</td><td>knowledge endpoints on a real Postgres, agent turns with memory and a confirmed ticket, personas, tools and HR endpoints, the Socket.IO gateway with ordered audio</td></tr>
+  <tr><td>Contracts + web unit (Vitest, 13)</td><td>schema defaults and tool-name coverage, session store state machine, ordered audio queue incl. raw PCM, WAV encoder</td></tr>
+  <tr><td>Browser e2e (Playwright, 7)</td><td>knowledge search and viewer, agent text turns with citations and trace, multi-turn confirmed action, conversations, theme, tools dashboard, and a hands-free voice turn with Chromium's fake microphone fed a synthesized utterance</td></tr>
+</table>
+<p>CI (GitHub Actions) runs lint, typecheck, unit, API e2e and the browser suite with Postgres and Redis service containers, all in mock mode.</p>
+
+<h2>13. Configuration and operations</h2>
+<table>
+  <tr><th>Variable</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>AI_PROVIDER</code></td><td>auto</td><td><code>openai</code> when a key is present, otherwise <code>mock</code></td></tr>
+  <tr><td><code>OPENAI_CHAT_MODEL</code> / <code>OPENAI_EMBEDDING_MODEL</code></td><td>gpt-4.1-mini / text-embedding-3-small</td><td>reasoning model and vector model (documents remember their embedding model)</td></tr>
+  <tr><td><code>OPENAI_STT_MODEL</code> / <code>OPENAI_TTS_MODEL</code> / <code>OPENAI_TTS_VOICE</code></td><td>gpt-4o-transcribe / gpt-4o-mini-tts / coral</td><td>speech models and voice</td></tr>
+  <tr><td><code>AGENT_MAX_STEPS</code> · <code>AGENT_MAX_OUTPUT_TOKENS</code> · <code>AGENT_EAGER_RETRIEVAL</code></td><td>6 · 400 · true</td><td>loop budget, reply cap, pre-fetch</td></tr>
+  <tr><td><code>RETRIEVAL_TOP_K</code> · <code>RETRIEVAL_SPARSE_WEIGHT</code> · <code>RERANK_ENABLED</code></td><td>5 · 0.7 · false</td><td>passages per search, keyword weight in fusion, optional reranker</td></tr>
+  <tr><td><code>DATABASE_URL</code> · <code>REDIS_URL</code> · <code>DB_MIGRATE_ON_START</code></td><td>compose defaults</td><td>infrastructure</td></tr>
+</table>
+<p>Commands: <code>pnpm bootstrap</code> (idempotent setup), <code>pnpm dev</code>, <code>pnpm build / lint / typecheck / test</code>, <code>pnpm db:seed</code>, <code>pnpm eval:retrieval</code>, <code>pnpm --filter @voice-agent/api bench:speech</code>, <code>pnpm infra:up / infra:down / infra:reset</code>.</p>
+
+<h2>14. Key technical decisions</h2>
+<ul>
+  <li><strong>Cascaded pipeline instead of the OpenAI Realtime API.</strong> Realtime is faster per turn but hides the agent loop, retrieval grading and citations, costs roughly ten times more and is hard to test. The providers sit behind ports, so a Realtime adapter would be an addition, not a rewrite.</li>
+  <li><strong>No message broker in the request path.</strong> A voice turn is latency-critical and single-tenant; in-process async streams are the right tool, and Node's event loop already runs independent I/O concurrently. Redis + BullMQ is used where a queue is genuinely useful: asynchronous ingestion with job status.</li>
+  <li><strong>Postgres + pgvector as the single store.</strong> Vectors, full-text search, conversations and tickets in one database with one migration path; hybrid retrieval is two indexed queries on one table.</li>
+  <li><strong>BM25 computed in the application over stored lexemes.</strong> Postgres' <code>ts_rank</code> has no rarity term; BM25 lifted hybrid hit@1 from 0.83 to 0.89 with real embeddings.</li>
+  <li><strong>Eager retrieval plus retrieval-as-a-tool.</strong> One model call for the common case, while the agent still reformulates, searches again or abstains.</li>
+  <li><strong>Streamed PCM speech instead of per-clip MP3.</strong> Every format waited 1.6–2.7 s per clip for the whole file; streaming raw PCM starts playback on the first 100 ms of audio with no client-side decoding.</li>
+  <li><strong>A hand-rolled agent runtime</strong> of a few hundred readable, tested lines rather than a framework abstraction.</li>
+  <li><strong>One contract package</strong> so nothing is defined twice, and <strong>mock adapters as first-class citizens</strong> so the whole system is testable without secrets.</li>
+  <li><strong>NestJS 11</strong> rather than the ten-week-old NestJS 12, because the Zod DTO library has not declared support for 12 yet.</li>
+</ul>
+
+<h2>15. Limitations and roadmap</h2>
+<ul>
+  <li>Mock mode demonstrates the pipeline but cannot understand arbitrary speech or questions.</li>
+  <li>The retrieval grade is a heuristic; an LLM-based relevance grader for borderline cases is the natural next step (a reranker port already exists).</li>
+  <li>Conversation summaries are stored but not yet generated; long conversations rely on the sliding window.</li>
+  <li>Streaming transcription would shave a few hundred milliseconds off the first stage.</li>
+  <li>Authentication, multi-tenancy and per-user rate limiting are out of scope for the assessment.</li>
+</ul>
+
+<h2>Appendix: screenshots</h2>
+<figure class="figure"><img src="../screenshots/agent-light.png" alt="Voice agent page" /><figcaption>Voice agent: transcript with citation chips, live trace, latency and cost badges.</figcaption></figure>
+<figure class="figure"><img src="../screenshots/knowledge-search.png" alt="Knowledge base page" /><figcaption>Knowledge base: documents by category and the search playground with fused, dense and keyword scores.</figcaption></figure>
+<figure class="figure"><img src="../screenshots/tools-dashboard.png" alt="Tools and tickets page" /><figcaption>Tools & tickets: support tickets, tool activity, catalogue and HR balances.</figcaption></figure>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  await document.fonts.ready;
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'neutral',
+    securityLevel: 'loose',
+    fontFamily: 'Inter, Helvetica, Arial, sans-serif',
+    themeVariables: { fontSize: '15px' },
+    flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 30, rankSpacing: 36, padding: 10 },
+    sequence: { useMaxWidth: true, actorFontSize: 14, messageFontSize: 13 },
+    er: { fontSize: 13, minEntityWidth: 120 },
+  });
+  await mermaid.run({ querySelector: '.mermaid' });
+  document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

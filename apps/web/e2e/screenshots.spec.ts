@@ -45,4 +45,12 @@ test.describe('screenshots', () => {
     await page.waitForTimeout(500);
     await page.screenshot({ path: `${OUT}/conversations.png` });
   });
+
+  test('tools dashboard', async ({ page }) => {
+    await page.goto('/tools');
+    await page.evaluate(() => document.documentElement.classList.remove('dark'));
+    await expect(page.locator('[data-testid^="tool-"]')).toHaveCount(6);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `${OUT}/tools-dashboard.png` });
+  });
 });

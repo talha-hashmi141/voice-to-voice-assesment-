@@ -8,6 +8,12 @@ Built for the _Senior Software Engineer: Voice-to-Voice Agent with RAG, Semantic
 | ------------------------------------------------ | -------------------------------------------------------- |
 | ![Voice agent](docs/screenshots/agent-light.png) | ![Knowledge base](docs/screenshots/knowledge-search.png) |
 
+## Documentation
+
+- **[Architecture & features](docs/architecture-and-features.pdf)**: system, flows and data diagrams, the full feature list, contracts, latency, cost, testing and the key decisions.
+- **[Testing guide](docs/testing-guide.pdf)**: what to set up, what to say for each scenario and tool, where to verify the effects, automated suites and troubleshooting.
+- Sources for both live in `docs/src`; regenerate with `pnpm --filter @voice-agent/web docs:pdf`.
+
 ## What it does
 
 - **Voice in, voice out.** On-device voice-activity detection (Silero VAD running in the browser) finds the end of your sentence, the audio goes to speech-to-text, the agent answers, and the reply is spoken back sentence by sentence while the model is still generating. Interrupt it by speaking (barge-in), or use push-to-talk or the text box.
@@ -215,6 +221,7 @@ Even with lexical mock vectors, fusing the channels beats either alone; with rea
 - `/` voice agent: state-driven orb (idle, listening with level meter, transcribing/thinking/using tools, speaking), hands-free or push-to-talk, text fallback, persona selector, reset, transcript with citation chips and a sources sheet, and the live agent trace with latency badges.
 - `/knowledge`: documents grouped by category with chunk statistics, a search playground with per-channel scores, document viewer, and a reindex button that follows BullMQ job progress.
 - `/conversations`: history, transcript with sources and metrics, "continue by voice".
+- `/tools`: tools & tickets dashboard: the tool catalogue exactly as the model sees it (schemas, side-effect flags, example phrases), usage statistics and recent invocations aggregated from stored traces, the support tickets the agent created (with status changes), and the mock HR balances behind `get_leave_balance`.
 - Light, dark and system themes; keyboard and screen-reader friendly controls.
 
 ## API

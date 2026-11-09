@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpenIcon, HistoryIcon, MicIcon } from 'lucide-react';
+import { BookOpenIcon, HistoryIcon, MicIcon, WrenchIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ export const NAV_ITEMS = [
   { href: '/', label: 'Voice agent', icon: MicIcon, exact: true },
   { href: '/knowledge', label: 'Knowledge base', icon: BookOpenIcon, exact: false },
   { href: '/conversations', label: 'Conversations', icon: HistoryIcon, exact: false },
+  { href: '/tools', label: 'Tools & tickets', icon: WrenchIcon, exact: false },
 ] as const;
 
 export function SidebarNav() {

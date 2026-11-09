@@ -11,7 +11,9 @@ import {
   SearchKnowledgeBaseTool,
   systemClock,
 } from './implementations';
+import { ToolUsageRepository } from './tool-usage.repository';
 import { ToolExecutor } from './tool.executor';
+import { ToolsController } from './tools.controller';
 import { type Tool, TOOLS } from './tool.port';
 import { ToolRegistry } from './tool.registry';
 
@@ -26,7 +28,9 @@ const TOOL_CLASSES = [
 
 @Module({
   imports: [KnowledgeModule, HrModule],
+  controllers: [ToolsController],
   providers: [
+    ToolUsageRepository,
     { provide: CLOCK, useValue: systemClock },
     ...TOOL_CLASSES,
     {

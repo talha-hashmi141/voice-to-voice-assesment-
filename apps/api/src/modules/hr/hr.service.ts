@@ -50,6 +50,10 @@ const SIMULATED_LATENCY_MS = 150;
  */
 @Injectable()
 export class HrService {
+  async listLeaveBalances(): Promise<LeaveBalance[]> {
+    return Promise.all(EMPLOYEES.map((employee) => this.getLeaveBalance(employee.employeeId)));
+  }
+
   async getLeaveBalance(employeeId: string): Promise<LeaveBalance> {
     await new Promise((resolve) => setTimeout(resolve, SIMULATED_LATENCY_MS));
     const record = EMPLOYEES.find(

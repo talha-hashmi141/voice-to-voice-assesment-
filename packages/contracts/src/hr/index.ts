@@ -38,3 +38,13 @@ export const TicketListResponseSchema = z.object({
   tickets: z.array(SupportTicketSchema),
 });
 export type TicketListResponse = z.infer<typeof TicketListResponseSchema>;
+
+export const UpdateTicketStatusRequestSchema = z.object({
+  status: TicketStatusSchema,
+});
+export type UpdateTicketStatusRequest = z.infer<typeof UpdateTicketStatusRequestSchema>;
+
+export const EmployeeListResponseSchema = z.object({
+  employees: z.array(LeaveBalanceSchema),
+});
+export type EmployeeListResponse = z.infer<typeof EmployeeListResponseSchema>;
